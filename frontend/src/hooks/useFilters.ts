@@ -26,7 +26,7 @@ export function useFilters() {
     const next = new URLSearchParams(params)
     if (value === 'all') next.delete('cat')
     else next.set('cat', value)
-    if (value !== 'all' && value !== 'character') next.delete('sub')
+    next.delete('sub') // 切换分类时重置子类型筛选
     apply(next)
   }
 

@@ -1,8 +1,8 @@
-"""Seed the database with demo items.
+"""Seed the database with demo items and tasks.
 
 Usage:
-    python -m app.seed            # seed only when table is empty
-    python -m app.seed --reset    # wipe items, then seed
+    python -m app.seed            # seed only when tables are empty
+    python -m app.seed --reset    # wipe items + tasks, then seed
 """
 import argparse
 import asyncio
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, func, select
 
 from app.database import SessionLocal, engine
-from app.models import Base, Item
+from app.models import Base, Item, Task
 
 # (title, category, sub_type, source, rating, status, favorite, tags, note, emoji, days_ago)
 SEED_ITEMS: list[tuple] = [
@@ -19,9 +19,9 @@ SEED_ITEMS: list[tuple] = [
     ("克苏鲁神话", "novel", None, "H.P. Lovecraft", 4, "wish", False, ["恐怖", "怪谈"], "准备开坑。", "🐙", 1),
     ("流萤", "character", "game", "崩坏：星穹铁道", 5, "doing", False, ["格拉默", "萤火"], "等复刻抽卡中…", "🌠", 3),
     ("塞尔达传说：王国之泪", "game", None, "Nintendo", 5, "done", True, ["开放世界", "任天堂"], "140 小时还没玩腻。", "🛡️", 4),
-    ("海贼王", "comic", None, "尾田荣一郎", 5, "doing", True, ["热血", "长篇"], "追到蛋头岛篇了。", "🏴‍☠️", 5),
+    ("海贼王", "comic", "jp", "尾田荣一郎", 5, "doing", True, ["热血", "长篇"], "追到蛋头岛篇了。", "🏴‍☠️", 5),
     ("【木鱼水心】红楼梦解读", "video", None, "哔哩哔哩", 5, "done", True, ["解说", "文学"], "公认的 B站 神作系列。", "🎞️", 6),
-    ("咒术回战", "comic", None, "芥见下下", 4, "doing", False, ["黑暗", "战斗"], "漫画党，追连载中。", "👁️", 7),
+    ("咒术回战", "comic", "jp", "芥见下下", 4, "doing", False, ["黑暗", "战斗"], "漫画党，追连载中。", "👁️", 7),
     ("三体", "novel", None, "刘慈欣", 5, "done", True, ["科幻", "硬核"], "黑暗森林法则太震撼。", "🪐", 9),
     ("五条悟", "character", "anime_manga", "咒术回战", 5, "done", True, ["最强", "摘眼罩名场面"], "", "🌀", 12),
     ("星际穿越", "movie", None, "Christopher Nolan", 5, "done", True, ["太空", "催泪"], "五维空间那段看哭了。", "🌌", 14),
@@ -35,6 +35,18 @@ SEED_ITEMS: list[tuple] = [
     ("你的名字。", "movie", None, "新海诚", 4, "done", False, ["新海诚", "恋爱"], "", "💫", 75),
     ("三笠", "character", "anime_manga", "进击的巨人", 5, "done", False, ["调查兵团", "最强女兵"], "", "🗡️", 90),
     ("千与千寻", "movie", None, "宫崎骏", 5, "done", True, ["吉卜力", "成长"], "永远的经典。", "🏮", 120),
+    ("我的青春恋爱物语果然有问题", "novel", None, "渡航", 4, "doing", False, ["青春", "恋爱喜剧"], "大老师的毒舌太对味。", "✏️", 8),
+    ("后浪", "shortdrama", None, "哔哩哔哩", 3, "doing", False, ["中医", "燃"], "竖屏短剧初体验。", "📱", 4),
+]
+
+# (title, kind, planned_minutes, status, note, days_ago)
+SEED_TASKS: list[tuple] = [
+    ("看完《葬送的芙莉莲》第 21 集", "todo", 25, "doing", "上周更到 20 了。", 3),
+    ("整理收藏夹的标签体系", "todo", 30, "pending", "把热血/战斗/治愈统一命名。", 2),
+    ("给服装板块拍三张展示图", "todo", 45, "pending", "自然光下拍最好看。", 1),
+    ("补完《海贼王》和之国篇", "todo", 600, "done", "十集马拉松完成！", 9),
+    ("一年内收藏满 500 部作品", "goal", None, "doing", "目前进度 20/500。", 30),
+    ("把服装板块整理成穿搭手册", "goal", None, "pending", "按季节分类。", 15),
 ]
 
 
@@ -71,26 +83,60 @@ async def seed_if_empty() -> int:
         return len(rows)
 
 
-async def reset_and_seed() -> int:
+async def seed_tasks_if_empty() -> int:
+    async with SessionLocal() as session:
+        count = (await session.execute(select(func.count()).select_from(Task))).scalar_one()
+        if count:
+            return 0
+        now = datetime.now()
+        rows = []
+        for (title, kind, minutes, status, note, days) in SEED_TASKS:
+            rows.append(
+                Task(
+                    title=title,
+                    kind=kind,
+                    planned_minutes=minutes,
+                    status=status,
+                    note=note or None,
+                    done_at=now - timedelta(days=days) if status == "done" else None,
+                    created_at=now - timedelta(days=days),
+                    updated_at=now - timedelta(days=days),
+                )
+            )
+        session.add_all(rows)
+        await session.commit()
+        return len(rows)
+
+
+async def reset_and_seed() -> tuple[int, int]:
     async with SessionLocal() as session:
         await session.execute(delete(Item))
+        await session.execute(delete(Task))
         await session.commit()
-    return await seed_if_empty()
+    n_items = await seed_if_empty()
+    n_tasks = await seed_tasks_if_empty()
+    return n_items, n_tasks
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed the Trove database")
-    parser.add_argument("--reset", action="store_true", help="wipe existing items first")
+    parser.add_argument("--reset", action="store_true", help="wipe existing items & tasks first")
     args = parser.parse_args()
 
     async def run() -> None:
         await create_tables()
         if args.reset:
-            n = await reset_and_seed()
-            print(f"reset done, seeded {n} items")
+            n_items, n_tasks = await reset_and_seed()
+            print(f"reset done, seeded {n_items} items / {n_tasks} tasks")
         else:
-            n = await seed_if_empty()
-            print(f"seeded {n} items" if n else "database not empty, skipped")
+            n_items = await seed_if_empty()
+            n_tasks = await seed_tasks_if_empty()
+            msg = []
+            if n_items:
+                msg.append(f"seeded {n_items} items")
+            if n_tasks:
+                msg.append(f"seeded {n_tasks} tasks")
+            print("; ".join(msg) if msg else "database not empty, skipped")
 
     asyncio.run(run())
 

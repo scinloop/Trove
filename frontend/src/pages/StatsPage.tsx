@@ -19,14 +19,15 @@ export function StatsPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const split = s?.character_split
   const splitSum = split ? (split.game ?? 0) + (split.anime_manga ?? 0) : 0
   const gp = splitSum ? Math.round(((split?.game ?? 0) / splitSum) * 100) : 0
+  const tk = s?.tasks
 
   return (
     <div className="view">
       <h2 className="v-title">统计</h2>
       <StatMinis
         items={[
-          { icon: '▦', label: '收藏总数', value: s?.total ?? 0 },
-          { icon: '◔', label: '近 30 天新增', value: s?.recent30 ?? 0 },
+          { icon: '🗂️', label: '收藏总数', value: s?.total ?? 0 },
+          { icon: '🆕', label: '近 30 天新增', value: s?.recent30 ?? 0 },
           { icon: '★', label: '平均评分', value: s?.avg_rating ?? 0, decimals: 1 },
           { icon: '✓', label: '完成率 %', value: s?.done_rate ?? 0 },
         ]}
@@ -75,6 +76,36 @@ export function StatsPage({ onOpen }: { onOpen: (it: Item) => void }) {
             </div>
           ) : (
             <p className="none">还没有收录角色～</p>
+          )}
+        </div>
+        <div className="panel">
+          <h3>任务进度</h3>
+          {tk && tk.total > 0 ? (
+            <>
+              {(['pending', 'doing', 'done'] as const).map((k) => {
+                const n = tk[k]
+                const w = Math.round((n / Math.max(1, tk.total)) * 100)
+                return (
+                  <div className="bar-row" key={k}>
+                    <span className="bl">{meta.task_status_labels[k] ?? k}</span>
+                    <div className="bar">
+                      <i
+                        style={{
+                          width: go ? `${w}%` : '0%',
+                          background: meta.task_status_colors[k] ?? '#a1a1aa',
+                        }}
+                      />
+                    </div>
+                    <b>{n}</b>
+                  </div>
+                )
+              })}
+              <p className="panel-note">
+                长期目标 {tk.goals} 个 · 共 {tk.total} 项任务
+              </p>
+            </>
+          ) : (
+            <p className="none">还没有任务，去「任务」页添加～</p>
           )}
         </div>
         <div className="panel">

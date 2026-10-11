@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import CATEGORY_KEYS
 from app.database import get_session
-from app.models import Item
+from app.models import Item, Task
 from app.schemas import ItemOut
 
 router = APIRouter(tags=["stats"])
@@ -36,6 +36,15 @@ async def get_stats(session: AsyncSession = Depends(get_session)) -> dict:
 
     recent = sorted(items, key=lambda i: (i.created_at, i.id), reverse=True)[:6]
 
+    tasks_rows = (await session.execute(select(Task))).scalars().all()
+    tasks = {
+        "total": len(tasks_rows),
+        "pending": sum(1 for t in tasks_rows if t.status == "pending"),
+        "doing": sum(1 for t in tasks_rows if t.status == "doing"),
+        "done": sum(1 for t in tasks_rows if t.status == "done"),
+        "goals": sum(1 for t in tasks_rows if t.kind == "goal"),
+    }
+
     return {
         "total": total,
         "recent30": recent30,
@@ -44,4 +53,5 @@ async def get_stats(session: AsyncSession = Depends(get_session)) -> dict:
         "by_category": by_category,
         "character_split": character_split,
         "recent": [ItemOut.model_validate(i) for i in recent],
+        "tasks": tasks,
     }

@@ -17,7 +17,7 @@ export function ItemCard({ item, index, onOpen }: Props) {
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = item.category === 'character' && item.sub_type ? meta.sub_types[item.sub_type] : null
+  const subMeta = item.sub_type ? meta.sub_types[item.sub_type] : null
 
   return (
     <article
@@ -26,7 +26,11 @@ export function ItemCard({ item, index, onOpen }: Props) {
       onClick={() => onOpen(item)}
     >
       <div className="cover" style={{ background: `${color}14` }}>
-        <span className="emoji">{item.emoji ?? cat?.emoji ?? '🎴'}</span>
+        {item.image_url ? (
+          <img className="cover-img" src={item.image_url} alt={item.title} loading="lazy" />
+        ) : (
+          <span className="emoji">{item.emoji ?? cat?.emoji ?? '🎴'}</span>
+        )}
         <div className="cov-badges">
           <span className="pill">
             <i style={{ background: color }} />

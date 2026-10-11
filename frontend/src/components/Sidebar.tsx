@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useFilters } from '../hooks/useFilters'
 import { useMeta, useStats } from '../hooks/queries'
+import { IconStats, IconTasks, IconWall } from './Icons'
 import type { Category } from '../types'
 
 export function Sidebar() {
@@ -21,10 +22,13 @@ export function Sidebar() {
       </div>
       <nav className="side-nav">
         <NavLink to="/" end className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
-          ▦ 收藏墙
+          <IconWall size={16} />收藏墙
+        </NavLink>
+        <NavLink to="/tasks" className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
+          <IconTasks size={16} />任务
         </NavLink>
         <NavLink to="/stats" className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
-          ▥ 统计
+          <IconStats size={16} />统计
         </NavLink>
       </nav>
       <div className="side-sec">分类</div>
@@ -52,7 +56,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="side-foot">
-        <span>Trove v0.1 · React + FastAPI + SQLite</span>
+        <span>Trove v0.2 · React + FastAPI + SQLite</span>
       </div>
     </aside>
   )

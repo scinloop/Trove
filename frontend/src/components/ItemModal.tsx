@@ -20,7 +20,7 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = item.category === 'character' && item.sub_type ? meta.sub_types[item.sub_type] : null
+  const subMeta = item.sub_type ? meta.sub_types[item.sub_type] : null
 
   const favMut = useMutation({
     mutationFn: (favorite: boolean) => api.update(item.id, { favorite }),
@@ -47,6 +47,7 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
         tags: item.tags,
         note: item.note,
         emoji: item.emoji,
+        image_url: item.image_url,
       }
       toast(`已删除「${item.title}」`, {
         label: '撤销',
@@ -72,8 +73,12 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
       }}
     >
       <div className="modal">
-        <div className="m-cover" style={{ background: `${color}14` }}>
-          <span>{item.emoji ?? cat?.emoji ?? '🎴'}</span>
+        <div className="m-cover" style={item.image_url ? undefined : { background: `${color}14` }}>
+          {item.image_url ? (
+            <img className="m-cover-img" src={item.image_url} alt={item.title} />
+          ) : (
+            <span>{item.emoji ?? cat?.emoji ?? '🎴'}</span>
+          )}
         </div>
         <div className="m-head">
           <h2>{item.title}</h2>

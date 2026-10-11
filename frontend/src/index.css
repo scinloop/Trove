@@ -1295,3 +1295,181 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- v0.2 · 图标 / 图片 / 任务 ---------- */
+
+.snav svg,
+.bnav svg {
+  flex: none;
+}
+
+/* 卡片 / 详情的图片封面 */
+.cover-img,
+.m-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cov-badges,
+.fav {
+  z-index: 1;
+}
+
+.m-cover {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 表单图片上传 */
+.upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1.5px dashed var(--line2);
+  border-radius: 12px;
+  padding: 16px 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+  background: var(--panel2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.upload-box:hover {
+  border-color: var(--muted);
+}
+
+.upload-box.busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.upload-box.has-img {
+  position: relative;
+  border-style: solid;
+  padding: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.upload-box.has-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.upload-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+/* 任务列表 */
+.chip .cnt {
+  opacity: 0.65;
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  animation: fadeUp 0.45s both;
+}
+
+.task-row:hover {
+  background: var(--panel2);
+}
+
+.task-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line2);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: transparent;
+  flex: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.task-check.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-main h3 {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-main h3.done {
+  text-decoration: line-through;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.task-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.task-dur {
+  margin-left: auto;
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+.panel-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.form.tight {
+  margin-top: 2px;
+}

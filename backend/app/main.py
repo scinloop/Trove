@@ -11,18 +11,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.config import BASE_DIR, settings
 from app.database import Base, engine
-from app.routers import items, meta, stats
-from app.seed import seed_if_empty
+from app.routers import items, meta, stats, tasks, uploads
+from app.seed import seed_if_empty, seed_tasks_if_empty
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # 轻量迁移：create_all 不会改动已存在的表，缺列时补上（幂等）
+        cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(items)"))).fetchall()}
+        if cols and "image_url" not in cols:
+            await conn.execute(text("ALTER TABLE items ADD COLUMN image_url VARCHAR(500)"))
     await seed_if_empty()
+    await seed_tasks_if_empty()
     yield
 
 
@@ -38,6 +44,14 @@ app.add_middleware(
 app.include_router(meta.router, prefix="/api")
 app.include_router(items.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
+app.include_router(uploads.router, prefix="/api")
+
+# ---- uploaded images (must be registered before the SPA catch-all) ----
+# URL /static/uploads/<file> -> data/uploads/<file>
+UPLOADS_DIR = settings.db_path.parent / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="static-uploads")
 
 # ---- Production mode: serve the built frontend (frontend/dist) ----
 DIST_DIR = BASE_DIR.parent / "frontend" / "dist"

@@ -30,8 +30,8 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
     <div className="view">
       <StatMinis
         items={[
-          { icon: '▦', label: '收藏总数', value: s?.total ?? 0 },
-          { icon: '◔', label: '近 30 天新增', value: s?.recent30 ?? 0 },
+          { icon: '🗂️', label: '收藏总数', value: s?.total ?? 0 },
+          { icon: '🆕', label: '近 30 天新增', value: s?.recent30 ?? 0 },
           { icon: '★', label: '平均评分', value: s?.avg_rating ?? 0, decimals: 1 },
           { icon: '✓', label: '完成率 %', value: s?.done_rate ?? 0 },
         ]}
