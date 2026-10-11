@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+
+# Local data & secrets
+*.db
+*.sqlite3
+.env
+backend/data/
+
+# Misc
+.DS_Store
+Thumbs.db
