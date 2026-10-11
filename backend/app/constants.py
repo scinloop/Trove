@@ -33,15 +33,16 @@ CATEGORY_SUB_TYPES: dict[str, list[str]] = {
 STATUS_COLORS: dict[str, str] = {"wish": "#f59e0b", "doing": "#3b82f6", "done": "#22c55e"}
 STATUS_KEYS: list[str] = list(STATUS_COLORS)
 
-# Progress labels adapt per category: game -> 想玩/在玩/通关, others -> 想看/在看/看完
+# Progress labels adapt per category: game -> 想玩/在玩/通关, clothing -> 想收/在收/已收, others -> 想看/在看/看完
 STATUS_LABELS: dict[str, dict[str, str]] = {
     "default": {"wish": "想看", "doing": "在看", "done": "看完"},
     "game": {"wish": "想玩", "doing": "在玩", "done": "通关"},
+    "clothing": {"wish": "想收", "doing": "在收", "done": "已收"},
 }
 
 
 def status_label(category: str, status: str) -> str:
-    labels = STATUS_LABELS["game"] if category == "game" else STATUS_LABELS["default"]
+    labels = STATUS_LABELS.get(category) or STATUS_LABELS["default"]
     return labels.get(status, status)
 
 

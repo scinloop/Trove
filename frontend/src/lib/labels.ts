@@ -28,6 +28,7 @@ export const FALLBACK_META: Meta = {
   status_labels: {
     default: { wish: '想看', doing: '在看', done: '看完' },
     game: { wish: '想玩', doing: '在玩', done: '通关' },
+    clothing: { wish: '想收', doing: '在收', done: '已收' },
   },
   task_kinds: ['todo', 'goal'],
   task_kind_meta: {
@@ -39,7 +40,7 @@ export const FALLBACK_META: Meta = {
 }
 
 export function statusLabel(meta: Meta, category: string, status: Status): string {
-  const labels = category === 'game' ? meta.status_labels.game : meta.status_labels.default
+  const labels = meta.status_labels[category] ?? meta.status_labels.default
   return labels[status] ?? status
 }
 

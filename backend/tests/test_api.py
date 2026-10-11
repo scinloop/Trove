@@ -53,6 +53,7 @@ async def test_meta(client):
         "comic", "novel", "anime", "character", "video", "game", "movie", "clothing", "shortdrama",
     ]
     assert meta["status_labels"]["game"]["done"] == "通关"
+    assert meta["status_labels"]["clothing"]["done"] == "已收"
     assert meta["category_sub_types"]["comic"] == ["jp", "kr", "other"]
     assert meta["task_status_labels"]["done"] == "已完成"
 
