@@ -14,9 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import BASE_DIR, settings
-from app.database import Base, engine
-from app.routers import items, meta, stats, tasks, uploads
-from app.seed import seed_if_empty, seed_tasks_if_empty
+from app.database import Base, SessionLocal, engine
+from app.routers import chapters, genres, items, meta, stats, tags, tasks, uploads
+from app.seed import ensure_genres, ensure_tags_from_items, seed_if_empty, seed_tasks_if_empty
 
 
 @asynccontextmanager
@@ -27,8 +27,11 @@ async def lifespan(_: FastAPI):
         cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(items)"))).fetchall()}
         if cols and "image_url" not in cols:
             await conn.execute(text("ALTER TABLE items ADD COLUMN image_url VARCHAR(500)"))
-    await seed_if_empty()
-    await seed_tasks_if_empty()
+    async with SessionLocal() as session:
+        await ensure_genres(session)          # 题材库默认数据（幂等）
+        await seed_if_empty()
+        await ensure_tags_from_items(session)  # 存量标签补进标签库（幂等）
+        await seed_tasks_if_empty()
     yield
 
 
@@ -46,6 +49,9 @@ app.include_router(items.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
+app.include_router(genres.router, prefix="/api")
+app.include_router(tags.router, prefix="/api")
+app.include_router(chapters.router, prefix="/api")
 
 # ---- uploaded images (must be registered before the SPA catch-all) ----
 # URL /static/uploads/<file> -> data/uploads/<file>

@@ -1,27 +1,34 @@
 """Frontend-facing constants (single source of truth for labels/colors/order)."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import (
     CATEGORIES,
-    CATEGORY_SUB_TYPES,
+    REQUIRED_GENRE_CATEGORIES,
     STATUS_COLORS,
     STATUS_LABELS,
-    SUB_TYPES,
     TASK_KIND_META,
     TASK_KINDS,
     TASK_STATUS_COLORS,
     TASK_STATUS_LABELS,
 )
+from app.crud import list_genres
+from app.database import get_session
 
 router = APIRouter(tags=["meta"])
 
 
 @router.get("/meta")
-async def get_meta() -> dict:
+async def get_meta(session: AsyncSession = Depends(get_session)) -> dict:
+    genres: dict[str, list[dict]] = {}
+    for g in await list_genres(session):
+        genres.setdefault(g.category, []).append(
+            {"key": g.key, "label": g.label, "color": g.color}
+        )
     return {
         "categories": CATEGORIES,
-        "sub_types": SUB_TYPES,
-        "category_sub_types": CATEGORY_SUB_TYPES,
+        "genres": genres,
+        "genre_required": REQUIRED_GENRE_CATEGORIES,
         "status_colors": STATUS_COLORS,
         "status_labels": STATUS_LABELS,
         "task_kinds": TASK_KINDS,

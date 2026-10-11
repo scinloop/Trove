@@ -19,6 +19,9 @@ export function StatsPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const split = s?.character_split
   const splitSum = split ? (split.game ?? 0) + (split.anime_manga ?? 0) : 0
   const gp = splitSum ? Math.round(((split?.game ?? 0) / splitSum) * 100) : 0
+  const charGenres = meta.genres.character ?? []
+  const gameColor = charGenres.find((g) => g.key === 'game')?.color ?? '#eab308'
+  const amColor = charGenres.find((g) => g.key === 'anime_manga')?.color ?? '#d946ef'
   const tk = s?.tasks
 
   return (
@@ -58,18 +61,18 @@ export function StatsPage({ onOpen }: { onOpen: (it: Item) => void }) {
               <div
                 className="donut"
                 style={{
-                  background: `conic-gradient(${meta.sub_types.game.color} 0 ${gp}%, ${meta.sub_types.anime_manga.color} ${gp}% 100%)`,
+                  background: `conic-gradient(${gameColor} 0 ${gp}%, ${amColor} ${gp}% 100%)`,
                 }}
               >
                 <b>{splitSum}</b>
               </div>
               <div className="legend">
                 <span>
-                  <i style={{ background: meta.sub_types.game.color }} />
+                  <i style={{ background: gameColor }} />
                   游戏角色<em>{split.game ?? 0}</em>
                 </span>
                 <span>
-                  <i style={{ background: meta.sub_types.anime_manga.color }} />
+                  <i style={{ background: amColor }} />
                   动漫·漫画角色<em>{split.anime_manga ?? 0}</em>
                 </span>
               </div>

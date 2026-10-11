@@ -1,10 +1,11 @@
 interface Props {
   theme: 'light' | 'dark'
   onToggleTheme: () => void
+  onManage: () => void
   onClose: () => void
 }
 
-export function MeSheet({ theme, onToggleTheme, onClose }: Props) {
+export function MeSheet({ theme, onToggleTheme, onManage, onClose }: Props) {
   return (
     <div
       className="overlay show"
@@ -27,9 +28,14 @@ export function MeSheet({ theme, onToggleTheme, onClose }: Props) {
               <i />
             </button>
           </div>
+          <div className="me-row">
+            <button className="me-link" onClick={onManage}>
+              🎨 题材与标签管理
+            </button>
+          </div>
         </div>
         <p className="about">
-          Trove v0.1 · React + FastAPI + SQLite
+          Trove v0.3 · React + FastAPI + SQLite
           <br />
           数据保存在本地 collecthub.db
         </p>

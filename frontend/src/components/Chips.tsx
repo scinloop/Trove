@@ -1,12 +1,12 @@
 import { useFilters } from '../hooks/useFilters'
-import type { Category, Meta, SortKey, SubType } from '../types'
+import type { Category, Meta, SortKey } from '../types'
 
 export function CategoryChips({ meta }: { meta: Meta }) {
   const { cat, sub, sort, setCat, setSub, setSort } = useFilters()
 
-  // 子类型筛选只在选中了「声明了子类型」的分类时出现（角色 / 漫画）
+  // 题材筛选只在选中了「有题材」的分类时出现（小说 / 角色 / 漫画，可在管理里扩展）
   const activeCat = cat === 'all' ? null : cat
-  const subs = activeCat ? (meta.category_sub_types[activeCat] ?? []) : []
+  const subs = activeCat ? (meta.genres[activeCat] ?? []) : []
 
   return (
     <>
@@ -40,19 +40,15 @@ export function CategoryChips({ meta }: { meta: Meta }) {
           <button className={'chip' + (sub === 'all' ? ' on' : '')} onClick={() => setSub('all')}>
             全部{meta.categories.find((c) => c.key === activeCat)?.label ?? ''}
           </button>
-          {subs.map((key) => {
-            const st = meta.sub_types[key]
-            if (!st) return null
-            return (
-              <button
-                key={key}
-                className={'chip' + (sub === key ? ' on' : '')}
-                onClick={() => setSub(key as SubType)}
-              >
-                {st.label}
-              </button>
-            )
-          })}
+          {subs.map((g) => (
+            <button
+              key={g.key}
+              className={'chip' + (sub === g.key ? ' on' : '')}
+              onClick={() => setSub(g.key)}
+            >
+              {g.label}
+            </button>
+          ))}
         </div>
       )}
     </>

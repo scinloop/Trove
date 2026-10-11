@@ -1,17 +1,14 @@
-"""Seed the database with demo items and tasks.
-
-Usage:
-    python -m app.seed            # seed only when tables are empty
-    python -m app.seed --reset    # wipe items + tasks, then seed
-"""
+"""Seed the database with demo items and tasks, ensure genres & tag library."""
 import argparse
 import asyncio
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import GENRE_PALETTE, GENRE_SEEDS, genre_color
 from app.database import SessionLocal, engine
-from app.models import Base, Item, Task
+from app.models import Base, Genre, Item, Tag, Task
 
 # (title, category, sub_type, source, rating, status, favorite, tags, note, emoji, days_ago)
 SEED_ITEMS: list[tuple] = [
@@ -53,6 +50,42 @@ SEED_TASKS: list[tuple] = [
 async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def ensure_genres(session: AsyncSession) -> int:
+    """幂等补齐默认题材（按 key 判断），老库也能获得题材库。"""
+    rows = (await session.execute(select(Genre))).scalars().all()
+    existing = {(g.category, g.key) for g in rows}
+    added = 0
+    for category, genres in GENRE_SEEDS.items():
+        for i, (key, label, color) in enumerate(genres):
+            if (category, key) in existing:
+                continue
+            session.add(
+                Genre(
+                    category=category,
+                    key=key,
+                    label=label,
+                    color=color or GENRE_PALETTE[i % len(GENRE_PALETTE)],
+                    sort_order=i,
+                )
+            )
+            added += 1
+    if added:
+        await session.commit()
+    return added
+
+
+async def ensure_tags_from_items(session: AsyncSession) -> int:
+    """把存量条目的标签补进标签库（幂等）。"""
+    have = {t.label for t in (await session.execute(select(Tag))).scalars().all()}
+    items = (await session.execute(select(Item))).scalars().all()
+    new = sorted({t for it in items for t in (it.tags or [])} - have)
+    for i, label in enumerate(new):
+        session.add(Tag(label=label, color=genre_color(label, i)))
+    if new:
+        await session.commit()
+    return len(new)
 
 
 async def seed_if_empty() -> int:

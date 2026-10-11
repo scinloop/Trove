@@ -1,4 +1,4 @@
-"""Shared constants: categories, sub types, statuses, tasks.
+"""Shared constants: categories, genres, statuses, tasks, palettes.
 
 Single source of truth - exposed to the frontend via GET /api/meta.
 Order of CATEGORIES is the sidebar / chips / charts order.
@@ -16,19 +16,51 @@ CATEGORIES: list[dict] = [
 ]
 CATEGORY_KEYS: list[str] = [c["key"] for c in CATEGORIES]
 CATEGORY_EMOJI: dict[str, str] = {c["key"]: c["emoji"] for c in CATEGORIES}
+CATEGORY_LABEL: dict[str, str] = {c["key"]: c["label"] for c in CATEGORIES}
 
-# sub_type only applies to categories that declare it (currently character / comic)
-SUB_TYPES: dict[str, dict] = {
-    "game": {"label": "游戏角色", "color": "#eab308"},
-    "anime_manga": {"label": "动漫·漫画角色", "color": "#d946ef"},
-    "jp": {"label": "日漫", "color": "#ef4444"},
-    "kr": {"label": "韩漫", "color": "#3b82f6"},
-    "other": {"label": "其他", "color": "#78716c"},
+# 题材（子分类）种子：key 稳定不变，label/color 可在管理界面维护
+# (key, label, color)  color=None 时按调色板自动取色
+GENRE_SEEDS: dict[str, list[tuple[str, str, str | None]]] = {
+    "novel": [
+        ("dushi", "都市", None),
+        ("xiaoyuan", "校园", None),
+        ("xuanhuan", "玄幻", None),
+        ("wuxia", "武侠", None),
+        ("xitong", "系统", None),
+        ("chuanyue", "穿越", None),
+        ("chongsheng", "重生", None),
+        ("qihuan", "奇幻", None),
+        ("lishi", "历史", None),
+        ("yule", "娱乐明星", None),
+        ("kehuan", "科幻", None),
+        ("tongren", "同人", None),
+    ],
+    "character": [
+        ("game", "游戏角色", "#eab308"),
+        ("anime_manga", "动漫·漫画角色", "#d946ef"),
+    ],
+    "comic": [
+        ("jp", "日漫", "#ef4444"),
+        ("kr", "韩漫", "#3b82f6"),
+        ("other", "其他", "#78716c"),
+    ],
 }
-CATEGORY_SUB_TYPES: dict[str, list[str]] = {
-    "character": ["game", "anime_manga"],
-    "comic": ["jp", "kr", "other"],
-}
+
+# 这些分类必须选择题材（存量规则：角色/漫画）
+REQUIRED_GENRE_CATEGORIES: list[str] = ["character", "comic"]
+
+GENRE_PALETTE: list[str] = [
+    "#f97316", "#14b8a6", "#8b5cf6", "#ec4899", "#0ea5e9", "#6366f1",
+    "#f43f5e", "#f59e0b", "#10b981", "#ef4444", "#84cc16", "#06b6d4",
+    "#a855f7", "#0284c7",
+]
+TAG_PALETTE: list[str] = GENRE_PALETTE
+
+
+def genre_color(label: str, index: int) -> str:
+    """新题材/标签的自动取色：优先按名称哈希，保证同名同色。"""
+    return TAG_PALETTE[(sum(ord(c) for c in label) + index) % len(TAG_PALETTE)]
+
 
 STATUS_COLORS: dict[str, str] = {"wish": "#f59e0b", "doing": "#3b82f6", "done": "#22c55e"}
 STATUS_KEYS: list[str] = list(STATUS_COLORS)

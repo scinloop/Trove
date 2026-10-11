@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMeta } from '../hooks/queries'
 import { useToggleFavorite } from '../hooks/useToggleFavorite'
-import { catOf, statusLabel } from '../lib/labels'
+import { catOf, genreOf, statusLabel } from '../lib/labels'
 import type { Item } from '../types'
 
 interface Props {
@@ -17,7 +17,7 @@ export function ItemCard({ item, index, onOpen }: Props) {
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = item.sub_type ? meta.sub_types[item.sub_type] : null
+  const subMeta = genreOf(meta, item.category, item.sub_type)
 
   return (
     <article

@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
 import { statusLabel } from '../lib/labels'
 import { IconImage } from './Icons'
+import { TagPicker } from './TagPicker'
 import { useToast } from './Toast'
 import type { Category, Item, ItemInput, Status, SubType } from '../types'
 
@@ -50,8 +51,9 @@ export function ItemForm({ item, onClose }: Props) {
         },
   )
 
-  // 当前分类声明了哪些子类型（角色：游戏/动漫漫画；漫画：日漫/韩漫/其他）
-  const subs = meta.category_sub_types[form.category] ?? []
+  // 当前分类的题材列表（题材库可维护）；角色/漫画必选
+  const subs = meta.genres[form.category] ?? []
+  const required = meta.genre_required.includes(form.category)
 
   const mut = useMutation({
     mutationFn: (input: ItemInput) => (item ? api.update(item.id, input) : api.create(input)),
@@ -70,12 +72,16 @@ export function ItemForm({ item, onClose }: Props) {
       toast('标题不能为空哦')
       return
     }
+    if (required && !subs.some((g) => g.key === form.sub_type)) {
+      toast(`「${meta.categories.find((c) => c.key === form.category)?.label}」需要选择题材`)
+      return
+    }
     mut.mutate({
       ...form,
       title,
       source: form.source?.trim() || null,
       note: form.note?.trim() || null,
-      sub_type: form.sub_type && subs.includes(form.sub_type) ? form.sub_type : ((subs[0] as SubType) ?? null),
+      sub_type: form.sub_type && subs.some((g) => g.key === form.sub_type) ? form.sub_type : null,
       emoji: form.emoji,
     })
   }
@@ -94,6 +100,8 @@ export function ItemForm({ item, onClose }: Props) {
       setUploading(false)
     }
   }
+
+  const genreLabel = form.category === 'character' ? '角色类型' : form.category === 'comic' ? '漫画类型' : '题材'
 
   return (
     <div
@@ -118,7 +126,9 @@ export function ItemForm({ item, onClose }: Props) {
                     ...f,
                     category: c.key as Category,
                     emoji: null,
-                    sub_type: ((meta.category_sub_types[c.key] ?? [])[0] as SubType) ?? null,
+                    sub_type: meta.genre_required.includes(c.key)
+                      ? ((meta.genres[c.key] ?? [])[0]?.key as SubType | undefined) ?? null
+                      : null,
                   }))
                 }
               >
@@ -128,15 +138,23 @@ export function ItemForm({ item, onClose }: Props) {
           </div>
           {subs.length > 0 && (
             <>
-              <label>{form.category === 'character' ? '角色类型（游戏人物与其他人物区分）' : '子分类'}</label>
-              <div className="seg">
-                {subs.map((k) => (
+              <label>{genreLabel}{required ? ' *' : '（可选）'}</label>
+              <div className="seg wrap">
+                {!required && (
                   <button
-                    key={k}
-                    className={'seg-b sm' + (form.sub_type === k ? ' on' : '')}
-                    onClick={() => setForm((f) => ({ ...f, sub_type: k as SubType }))}
+                    className={'seg-b sm' + (!form.sub_type ? ' on' : '')}
+                    onClick={() => setForm((f) => ({ ...f, sub_type: null }))}
                   >
-                    {meta.sub_types[k]?.label ?? k}
+                    不设置
+                  </button>
+                )}
+                {subs.map((g) => (
+                  <button
+                    key={g.key}
+                    className={'seg-b sm' + (form.sub_type === g.key ? ' on' : '')}
+                    onClick={() => setForm((f) => ({ ...f, sub_type: g.key }))}
+                  >
+                    {g.label}
                   </button>
                 ))}
               </div>
@@ -179,20 +197,8 @@ export function ItemForm({ item, onClose }: Props) {
               </button>
             ))}
           </div>
-          <label>标签（逗号分隔）</label>
-          <input
-            value={form.tags.join(', ')}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                tags: e.target.value
-                  .split(/[,，、]/)
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              }))
-            }
-            placeholder="科幻, 治愈, 热血"
-          />
+          <label>标签（从标签库选择，可新建）</label>
+          <TagPicker value={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
           <label>图片（服装展示 / 封面，可选）</label>
           {form.image_url ? (
             <div className="upload-box has-img">

@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_session
 from app.main import app
+from app.seed import ensure_genres
 
 CHARACTER_ITEM = {
     "title": "雷电将军",
@@ -19,6 +20,18 @@ CHARACTER_ITEM = {
     "favorite": True,
     "tags": ["稻妻"],
 }
+
+NOVEL_TEXT = """楔子
+天黑得很沉。
+
+第一章 起点
+少年推开门，风从山谷吹来。
+
+第二章 转折
+雨下了整夜，少年还在赶路。
+
+第三章 归途
+天亮时，他回到了起点。"""
 
 
 @pytest.fixture
@@ -32,6 +45,9 @@ async def client():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        await ensure_genres(session)  # 题材库默认数据
 
     async def override():
         async with session_factory() as session:
@@ -54,8 +70,9 @@ async def test_meta(client):
     ]
     assert meta["status_labels"]["game"]["done"] == "通关"
     assert meta["status_labels"]["clothing"]["done"] == "已收"
-    assert meta["category_sub_types"]["comic"] == ["jp", "kr", "other"]
-    assert meta["task_status_labels"]["done"] == "已完成"
+    assert [g["key"] for g in meta["genres"]["comic"]] == ["jp", "kr", "other"]
+    assert len(meta["genres"]["novel"]) == 12
+    assert meta["genre_required"] == ["character", "comic"]
 
 
 async def test_create_and_get(client):
@@ -79,10 +96,14 @@ async def test_invalid_category(client):
     assert r.status_code == 422
 
 
-async def test_sub_type_cleared_for_non_character(client):
-    r = await client.post("/api/items", json={"title": "三体", "category": "novel", "sub_type": "game"})
+async def test_sub_type_validation(client):
+    # 小说可选题材；选了就必须是题材库里的 key
+    r = await client.post("/api/items", json={"title": "三体", "category": "novel", "sub_type": "kehuan"})
     assert r.status_code == 201
-    assert r.json()["sub_type"] is None
+    assert r.json()["sub_type"] == "kehuan"
+
+    r = await client.post("/api/items", json={"title": "x", "category": "novel", "sub_type": "game"})
+    assert r.status_code == 422  # 角色的题材不能用在小说上
 
 
 async def test_list_filter_search_sort(client):
@@ -158,10 +179,10 @@ async def test_comic_sub_types(client):
     assert r.json()["sub_type"] == "kr"
 
     r = await client.post("/api/items", json={"title": "x", "category": "comic"})
-    assert r.status_code == 422  # 漫画必须选子类型
+    assert r.status_code == 422  # 漫画必须选题材
 
     r = await client.post("/api/items", json={"title": "x", "category": "comic", "sub_type": "game"})
-    assert r.status_code == 422  # 不能借用角色分类的子类型
+    assert r.status_code == 422  # 不能借用角色分类的题材
 
     r = await client.post("/api/items", json={"title": "x", "category": "character", "sub_type": "jp"})
     assert r.status_code == 422
@@ -214,3 +235,108 @@ async def test_upload_image(client, tmp_path, monkeypatch):
 
     r = await client.post("/api/upload", files={"file": ("a.txt", b"x", "text/plain")})
     assert r.status_code == 400  # 非图片格式拒绝
+
+
+async def test_genres_manage(client):
+    r = await client.post("/api/genres", json={"category": "novel", "label": "无限流"})
+    assert r.status_code == 201
+    genre = r.json()
+    assert genre["key"].startswith("g_") and genre["color"].startswith("#")
+
+    r = await client.patch(f"/api/genres/{genre['id']}", json={"label": "无限流小说"})
+    assert r.json()["label"] == "无限流小说"
+
+    r = await client.post("/api/items", json={"title": "书", "category": "novel", "sub_type": genre["key"]})
+    assert r.status_code == 201
+    item_id = r.json()["id"]
+
+    r = await client.delete(f"/api/genres/{genre['id']}")
+    assert r.status_code == 409  # 有条目引用，禁止删除
+
+    await client.delete(f"/api/items/{item_id}")
+    r = await client.delete(f"/api/genres/{genre['id']}")
+    assert r.status_code == 204
+
+
+async def test_tags_manage(client):
+    r = await client.post("/api/tags", json={"label": "爽文"})
+    assert r.status_code == 201
+    tag = r.json()
+    assert tag["color"].startswith("#")
+
+    r = await client.post("/api/tags", json={"label": "爽文"})
+    assert r.status_code == 200 and r.json()["id"] == tag["id"]  # 幂等
+
+    r = await client.post("/api/items", json={"title": "书A", "category": "novel", "sub_type": "xuanhuan", "tags": ["爽文"]})
+    item_id = r.json()["id"]
+
+    tags = (await client.get("/api/tags")).json()
+    mine = next(t for t in tags if t["label"] == "爽文")
+    assert mine["usage"] == 1
+
+    r = await client.patch(f"/api/tags/{tag['id']}", json={"label": "爽文小说"})
+    assert r.json()["label"] == "爽文小说"
+    item = (await client.get(f"/api/items/{item_id}")).json()
+    assert item["tags"] == ["爽文小说"]  # 重命名级联到条目
+
+    r = await client.delete(f"/api/tags/{tag['id']}")
+    assert r.status_code == 204
+    item = (await client.get(f"/api/items/{item_id}")).json()
+    assert item["tags"] == ["爽文小说"]  # 删字典不影响已挂条目
+
+
+async def test_chapters_import_and_search(client):
+    r = await client.post("/api/items", json={"title": "少年行", "category": "novel", "sub_type": "wuxia"})
+    item_id = r.json()["id"]
+
+    r = await client.post(f"/api/items/{item_id}/chapters/paste", json={"text": NOVEL_TEXT})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] == 4  # 楔子 + 3 章
+    assert body["chapters"][0]["title"] == "楔子"
+    assert body["chapters"][1]["title"].startswith("第一章")
+    assert all(c["word_count"] > 0 for c in body["chapters"])
+
+    # 列表不含正文
+    r = await client.get(f"/api/items/{item_id}/chapters")
+    lst = r.json()
+    assert len(lst) == 4 and "content" not in lst[0]
+
+    # 单章详情
+    first = lst[1]
+    r = await client.get(f"/api/chapters/{first['id']}")
+    assert "少年推开门" in r.json()["content"]
+
+    # 书内搜索：总次数 + 每章次数 + 位置可回溯
+    r = await client.get(f"/api/items/{item_id}/search", params={"q": "少年"})
+    body = r.json()
+    assert body["total"] == 2
+    assert [c["count"] for c in body["chapters"]] == [1, 1]
+    pos = body["chapters"][0]["positions"][0]
+    detail = (await client.get(f"/api/chapters/{body['chapters'][0]['chapter_id']}")).json()
+    assert detail["content"][pos:pos + 2] == "少年"
+
+    # 编辑章节 → 字数重算
+    r = await client.put(f"/api/chapters/{first['id']}", json={"content": "短内容"})
+    assert r.json()["word_count"] == 3
+
+    # 删除章节
+    r = await client.delete(f"/api/chapters/{first['id']}")
+    assert r.status_code == 204
+    assert len((await client.get(f"/api/items/{item_id}/chapters")).json()) == 3
+
+
+async def test_chapters_txt_upload_gbk(client):
+    r = await client.post("/api/items", json={"title": "旧书", "category": "novel"})
+    item_id = r.json()["id"]
+
+    raw = "第一章 起点\n内容你好".encode("gbk")
+    r = await client.post(f"/api/items/{item_id}/chapters/import", files={"file": ("book.txt", raw, "text/plain")})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] == 1  # 无分章标题 → 整本一章
+    detail = (await client.get(f"/api/chapters/{body['chapters'][0]['id']}")).json()
+    assert "内容你好" in detail["content"]  # GBK 正确解码
+
+    r = await client.post(f"/api/items/{item_id}/chapters/import", files={"file": ("a.png", b"x", "image/png")})
+    assert r.status_code == 400  # 非 txt 拒绝

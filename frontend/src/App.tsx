@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { BottomBar } from './components/BottomBar'
+import { ChapterManager } from './components/ChapterManager'
 import { ItemForm } from './components/ItemForm'
 import { ItemModal } from './components/ItemModal'
+import { ManageModal } from './components/ManageModal'
 import { MeSheet } from './components/MeSheet'
 import { Sidebar } from './components/Sidebar'
 import { TaskForm } from './components/TaskForm'
 import { TaskModal } from './components/TaskModal'
 import { ToastProvider } from './components/Toast'
 import { Topbar } from './components/Topbar'
+import { ReaderPage } from './pages/ReaderPage'
 import { StatsPage } from './pages/StatsPage'
 import { TasksPage } from './pages/TasksPage'
 import { WallPage } from './pages/WallPage'
@@ -26,6 +29,9 @@ export default function App() {
   const [taskDetail, setTaskDetail] = useState<Task | null>(null)
   const [formTask, setFormTask] = useState<Task | null | undefined>(undefined)
   const [meOpen, setMeOpen] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [chapterManager, setChapterManager] = useState<Item | null>(null)
+  const nav = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
@@ -41,6 +47,11 @@ export default function App() {
     else setFormItem(null)
   }
 
+  const read = (it: Item) => {
+    setDetail(null)
+    nav(`/read/${it.id}`)
+  }
+
   return (
     <ToastProvider>
       <div className="app">
@@ -52,6 +63,7 @@ export default function App() {
               <Route path="/" element={<WallPage onOpen={setDetail} />} />
               <Route path="/tasks" element={<TasksPage onOpen={setTaskDetail} />} />
               <Route path="/stats" element={<StatsPage onOpen={setDetail} />} />
+              <Route path="/read/:id" element={<ReaderPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
@@ -64,6 +76,11 @@ export default function App() {
             onEdit={(it) => {
               setDetail(null)
               setFormItem(it)
+            }}
+            onRead={read}
+            onManageChapters={(it) => {
+              setDetail(null)
+              setChapterManager(it)
             }}
           />
         )}
@@ -84,7 +101,21 @@ export default function App() {
         {formTask !== undefined && (
           <TaskForm task={formTask} onClose={() => setFormTask(undefined)} />
         )}
-        {meOpen && <MeSheet theme={theme} onToggleTheme={toggleTheme} onClose={() => setMeOpen(false)} />}
+        {chapterManager && (
+          <ChapterManager item={chapterManager} onClose={() => setChapterManager(null)} />
+        )}
+        {meOpen && (
+          <MeSheet
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onManage={() => {
+              setMeOpen(false)
+              setManageOpen(true)
+            }}
+            onClose={() => setMeOpen(false)}
+          />
+        )}
+        {manageOpen && <ManageModal onClose={() => setManageOpen(false)} />}
       </div>
     </ToastProvider>
   )

@@ -1,6 +1,6 @@
 # Trove · 个人收藏站
 
-统一收藏漫画（日漫/韩漫/其他）、小说、动漫、角色（游戏人物为主）、视频、游戏、电影、服装（图片展示）、短剧的个人站点，并内置任务清单（待办任务 + 长期目标）。
+统一收藏漫画、小说、动漫、角色（游戏人物为主）、视频、游戏、电影、服装（图片展示）、短剧的个人站点，并内置任务清单（待办任务 + 长期目标）。
 前后端分离：**React 19 + Vite + TS**（前端）/ **FastAPI + SQLAlchemy 2.0 async + SQLite**（后端）。
 
 ## 目录结构
@@ -9,24 +9,32 @@
 collecthub/
 ├── backend/                 # FastAPI 后端
 │   ├── app/
-│   │   ├── main.py          # 应用入口（CORS、SPA 回退、lifespan 建表+种子）
+│   │   ├── main.py          # 应用入口（CORS、SPA 回退、lifespan 建表+迁移+种子）
 │   │   ├── config.py        # 路径 / CORS / DB 配置
 │   │   ├── database.py      # async engine / session（JSON 中文可读序列化）
-│   │   ├── models.py        # Item / Task 模型（Item 支持图片 image_url）
-│   │   ├── schemas.py       # Pydantic 校验（角色/漫画必须带 sub_type 等）
-│   │   ├── constants.py     # 分类/子类/状态/任务 唯一真源（/api/meta 下发）
-│   │   ├── crud.py          # 列表筛选/搜索/排序 + 增删改（收藏与任务）
-│   │   ├── seed.py          # 演示数据：22 条收藏 + 6 条任务（python -m app.seed [--reset]）
-│   │   └── routers/         # items / tasks / uploads / meta / stats
-│   └── tests/test_api.py    # 14 个接口测试（内存 SQLite）
+│   │   ├── models.py        # Item / Task / Genre / Tag / Chapter
+│   │   ├── schemas.py       # Pydantic 校验（角色/漫画必须选题材等）
+│   │   ├── constants.py     # 分类/题材种子/状态/任务 唯一真源（/api/meta 下发）
+│   │   ├── crud.py          # 收藏/题材/标签/章节 的筛选、增删改、分章与书内搜索
+│   │   ├── seed.py          # 题材库补齐 + 演示数据（python -m app.seed [--reset]）
+│   │   └── routers/         # items / tasks / uploads / meta / stats / genres / tags / chapters
+│   └── tests/test_api.py    # 18 个接口测试（内存 SQLite）
 └── frontend/                # React 前端（Vite 8 + React 19 + TS 严格模式）
     └── src/
-        ├── api/client.ts    # fetch 封装（/api + 图片上传）
-        ├── components/      # 卡片/弹窗/表单/侧栏/底栏/任务/Toast/SVG 图标…
+        ├── api/client.ts    # fetch 封装（/api + 图片上传 + .txt 导入）
+        ├── components/      # 卡片/弹窗/表单/TagPicker/ManageModal/ChapterManager/Toast/SVG 图标…
         ├── hooks/           # useFilters(URL 驱动) / useMeta / useStats / 乐观更新
-        ├── pages/           # 收藏墙 WallPage / 任务 TasksPage / 统计 StatsPage
-        └── index.css        # 简约现代风格（浅/深色，移动端自适应）
+        ├── pages/           # 收藏墙 WallPage / 任务 TasksPage / 统计 StatsPage / 阅读器 ReaderPage
+        └── index.css        # 简约现代风格（浅/深色 + 阅读器三主题，移动端自适应）
 ```
+
+## 功能亮点
+
+- **题材库**：九大分类的子分类统一进 `genres` 表维护（「我的 → 题材与标签管理」），可加题材、改名、排序；有收藏引用的题材删除会被拦截。角色/漫画必选题材，其余分类可选。
+- **标签库**：条目标签从标签库点选或回车新建，重命名级联更新所有条目，删除仅移出库不影响条目。
+- **小说阅读器**：小说条目支持导入正文（.txt 上传 / 整本粘贴，UTF-8 优先自动回退 GBK），按「第X章 / 卷 / Chapter N」自动分章（可自定义正则重新分章）；全屏阅读器带目录抽屉（每章字数）、字号/行距/浅色·护眼·夜间三主题、阅读进度记忆。
+- **书内搜索**：全书关键词命中计数 + 逐处跳转（悬浮条 ‹ › 或章节结果直达），命中高亮居中显示。
+- 其余：评分 / 状态 / 喜爱 / 标签筛选与搜索、图片上传、统计看板、任务清单（待办 + 长期目标）。
 
 ## 本地运行（两个终端）
 
@@ -40,7 +48,7 @@ cd collecthub/frontend
 pnpm dev
 ```
 
-首次启动自动建表并写入 20 条演示数据；如需重置：`cd backend && .venv\Scripts\python -m app.seed --reset`。
+首次启动自动建表、补齐题材库种子并写入演示数据；如需重置：`cd backend && .venv\Scripts\python -m app.seed --reset`。
 
 ## 生产部署（单进程）
 
@@ -55,10 +63,19 @@ cd ../backend
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/meta` | 分类/子类/状态/任务 的标签、颜色、顺序 |
+| GET | `/api/meta` | 分类/题材/状态/任务 的标签、颜色、顺序（含 `genre_required`） |
 | GET | `/api/items` | 列表：`category` `sub` `q` `sort=recent\|rating\|title` `favorite` |
-| POST | `/api/items` | 新增（201） |
+| POST | `/api/items` | 新增（201，题材按分类校验） |
 | GET/PATCH/DELETE | `/api/items/{id}` | 详情 / 部分更新 / 删除（204） |
+| GET/POST | `/api/genres` | 题材库列表 / 新增（POST `/{id}/move?dir=up\|down` 排序，PATCH 改名，DELETE 引用>0 时 409） |
+| GET/POST | `/api/tags` | 标签库（带 usage 计数）/ 新增（幂等，存在返回 200） |
+| PATCH/DELETE | `/api/tags/{id}` | 重命名（级联条目）/ 移出标签库 |
+| POST | `/api/items/{id}/chapters/import` | 上传 .txt 整本导入（≤20MB，UTF-8/GBK） |
+| POST | `/api/items/{id}/chapters/paste` | 粘贴文本导入（覆盖现有章节） |
+| POST | `/api/items/{id}/chapters/resplit` | 按章节标题重新分章（可带自定义正则 `pattern`） |
+| GET/POST | `/api/items/{id}/chapters` | 章节列表（不含正文）/ 追加单章 |
+| GET/PUT/DELETE | `/api/chapters/{id}` | 章节详情（含正文）/ 编辑（重算字数）/ 删除 |
+| GET | `/api/items/{id}/search?q=` | 书内搜索：总次数 + 每章次数与位置偏移 |
 | POST | `/api/upload` | 图片上传（multipart，≤5MB，jpg/png/webp/gif） |
 | GET | `/api/tasks` | 任务/长期目标列表：`kind=todo\|goal` `status` |
 | POST/PATCH/DELETE | `/api/tasks[/{id}]` | 任务增改删（完成时自动记录 done_at） |
@@ -69,12 +86,13 @@ cd ../backend
 ## 测试
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest -v   # 14 passed
+cd backend && .venv\Scripts\python -m pytest -v   # 18 passed
 cd frontend && pnpm build                          # tsc -b 严格模式 + vite build
 ```
 
 ## 二期规划
 
+- 阅读器左右翻页模式（评估引入 foliate-js paginator）
 - 登录鉴权（PyJWT + bcrypt 已在依赖中）
 - Docker / Caddy 一键部署
 - PWA（离线访问、添加到主屏幕）

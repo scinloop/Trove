@@ -8,7 +8,7 @@ export type Category =
   | 'movie'
   | 'clothing'
   | 'shortdrama'
-export type SubType = 'game' | 'anime_manga' | 'jp' | 'kr' | 'other'
+export type SubType = string // genres 表里的 key（题材库可维护，不再收窄为固定联合）
 export type Status = 'wish' | 'doing' | 'done'
 export type SortKey = 'recent' | 'rating' | 'title'
 export type TaskKind = 'todo' | 'goal'
@@ -39,10 +39,61 @@ export interface CategoryMeta {
   note: string | null
 }
 
+export interface GenreMeta {
+  key: string
+  label: string
+  color: string
+}
+
+export interface Genre extends GenreMeta {
+  id: number
+  category: string
+  sort_order: number
+}
+
+export interface Tag {
+  id: number
+  label: string
+  color: string
+  usage: number
+}
+
+export interface ChapterMeta {
+  id: number
+  idx: number
+  title: string
+  word_count: number
+}
+
+export interface Chapter extends ChapterMeta {
+  item_id: number
+  content: string
+}
+
+export interface ImportResult {
+  count: number
+  total_words: number
+  chapters: ChapterMeta[]
+}
+
+export interface BookSearchChapter {
+  chapter_id: number
+  idx: number
+  title: string
+  count: number
+  positions: number[]
+}
+
+export interface BookSearch {
+  q: string
+  total: number
+  chapters: BookSearchChapter[]
+}
+
 export interface Meta {
   categories: CategoryMeta[]
-  sub_types: Record<string, { label: string; color: string }>
-  category_sub_types: Record<string, string[]>
+  genres: Record<string, GenreMeta[]>
+  genre_required: string[]
   status_colors: Record<string, string>
   status_labels: Record<string, Record<string, string>>
   task_kinds: string[]

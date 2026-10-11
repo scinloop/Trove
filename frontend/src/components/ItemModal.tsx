@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
-import { catOf, statusLabel } from '../lib/labels'
+import { catOf, fmtWords, genreOf, statusLabel } from '../lib/labels'
 import { useToast } from './Toast'
 import type { Item, ItemInput } from '../types'
 
@@ -10,9 +11,11 @@ interface Props {
   item: Item
   onClose: () => void
   onEdit: (it: Item) => void
+  onRead: (it: Item) => void
+  onManageChapters: (it: Item) => void
 }
 
-export function ItemModal({ item, onClose, onEdit }: Props) {
+export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: Props) {
   const meta = useMeta()
   const toast = useToast()
   const qc = useQueryClient()
@@ -20,7 +23,16 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = item.sub_type ? meta.sub_types[item.sub_type] : null
+  const subMeta = genreOf(meta, item.category, item.sub_type)
+
+  const isNovel = item.category === 'novel'
+  const chaptersQ = useQuery({
+    queryKey: ['chapters', item.id],
+    queryFn: () => api.chapters(item.id),
+    enabled: isNovel,
+  })
+  const chapters = chaptersQ.data ?? []
+  const totalWords = chapters.reduce((s, c) => s + c.word_count, 0)
 
   const favMut = useMutation({
     mutationFn: (favorite: boolean) => api.update(item.id, { favorite }),
@@ -131,6 +143,14 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
                 : '—'}
             </span>
           </div>
+          {isNovel && (
+            <div className="m-row">
+              <i>正文</i>
+              <span>
+                {chapters.length > 0 ? `${chapters.length} 章 · ${fmtWords(totalWords)}` : '未导入'}
+              </span>
+            </div>
+          )}
           <div className="m-row">
             <i>收藏于</i>
             <span>{item.created_at.slice(0, 10)}</span>
@@ -144,12 +164,23 @@ export function ItemModal({ item, onClose, onEdit }: Props) {
           <button className="btn ghost" onClick={onClose}>
             关闭
           </button>
+          {isNovel && (
+            <button className="btn ghost" onClick={() => onManageChapters(item)}>
+              章节管理
+            </button>
+          )}
           <button className="btn ghost danger" onClick={() => delMut.mutate()} disabled={delMut.isPending}>
             删除
           </button>
-          <button className="btn primary" onClick={() => onEdit(item)}>
-            编辑
-          </button>
+          {isNovel ? (
+            <button className="btn primary" onClick={() => onRead(item)}>
+              {chapters.length > 0 ? '📖 阅读' : '📄 导入正文'}
+            </button>
+          ) : (
+            <button className="btn primary" onClick={() => onEdit(item)}>
+              编辑
+            </button>
+          )}
         </div>
       </div>
     </div>

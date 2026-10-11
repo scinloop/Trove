@@ -1,4 +1,4 @@
-import type { Meta, Status, TaskStatus } from '../types'
+import type { GenreMeta, Meta, Status, TaskStatus } from '../types'
 
 /** Fallback constants (mirrors backend /api/meta) so the UI renders even before meta loads. */
 export const FALLBACK_META: Meta = {
@@ -13,17 +13,32 @@ export const FALLBACK_META: Meta = {
     { key: 'clothing', label: '服装', emoji: '👗', color: '#f59e0b', note: null },
     { key: 'shortdrama', label: '短剧', emoji: '📱', color: '#10b981', note: null },
   ],
-  sub_types: {
-    game: { label: '游戏角色', color: '#eab308' },
-    anime_manga: { label: '动漫·漫画角色', color: '#d946ef' },
-    jp: { label: '日漫', color: '#ef4444' },
-    kr: { label: '韩漫', color: '#3b82f6' },
-    other: { label: '其他', color: '#78716c' },
+  genres: {
+    novel: [
+      { key: 'dushi', label: '都市', color: '#f97316' },
+      { key: 'xiaoyuan', label: '校园', color: '#14b8a6' },
+      { key: 'xuanhuan', label: '玄幻', color: '#8b5cf6' },
+      { key: 'wuxia', label: '武侠', color: '#ec4899' },
+      { key: 'xitong', label: '系统', color: '#0ea5e9' },
+      { key: 'chuanyue', label: '穿越', color: '#6366f1' },
+      { key: 'chongsheng', label: '重生', color: '#f43f5e' },
+      { key: 'qihuan', label: '奇幻', color: '#f59e0b' },
+      { key: 'lishi', label: '历史', color: '#10b981' },
+      { key: 'yule', label: '娱乐明星', color: '#ef4444' },
+      { key: 'kehuan', label: '科幻', color: '#84cc16' },
+      { key: 'tongren', label: '同人', color: '#06b6d4' },
+    ],
+    character: [
+      { key: 'game', label: '游戏角色', color: '#eab308' },
+      { key: 'anime_manga', label: '动漫·漫画角色', color: '#d946ef' },
+    ],
+    comic: [
+      { key: 'jp', label: '日漫', color: '#ef4444' },
+      { key: 'kr', label: '韩漫', color: '#3b82f6' },
+      { key: 'other', label: '其他', color: '#78716c' },
+    ],
   },
-  category_sub_types: {
-    character: ['game', 'anime_manga'],
-    comic: ['jp', 'kr', 'other'],
-  },
+  genre_required: ['character', 'comic'],
   status_colors: { wish: '#f59e0b', doing: '#3b82f6', done: '#22c55e' },
   status_labels: {
     default: { wish: '想看', doing: '在看', done: '看完' },
@@ -52,6 +67,11 @@ export function catOf(meta: Meta, key: string) {
   return meta.categories.find((c) => c.key === key)
 }
 
+export function genreOf(meta: Meta, category: string, key: string | null): GenreMeta | null {
+  if (!key) return null
+  return (meta.genres[category] ?? []).find((g) => g.key === key) ?? null
+}
+
 /** 预计时长格式化：45 -> "45 分钟"，90 -> "1 小时 30 分钟" */
 export function fmtMinutes(m: number | null): string {
   if (!m || m <= 0) return '未设定'
@@ -59,4 +79,10 @@ export function fmtMinutes(m: number | null): string {
   const h = Math.floor(m / 60)
   const rest = m % 60
   return rest ? `${h} 小时 ${rest} 分钟` : `${h} 小时`
+}
+
+/** 字数格式化：9500 -> "9,500 字"，123456 -> "12.3 万字" */
+export function fmtWords(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)} 万字`
+  return `${n.toLocaleString()} 字`
 }
