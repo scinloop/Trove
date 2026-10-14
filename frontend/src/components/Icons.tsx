@@ -65,3 +65,13 @@ export function IconImage({ size = 18, className }: IconProps) {
     </svg>
   )
 }
+
+/** 我的 · 人像 */
+export function IconMe({ size = 18, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+    </svg>
+  )
+}

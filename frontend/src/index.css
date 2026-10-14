@@ -1103,7 +1103,7 @@ select {
 .fab {
   position: absolute;
   left: 50%;
-  top: -26px;
+  top: -14px;
   transform: translateX(-50%);
   width: 52px;
   height: 52px;

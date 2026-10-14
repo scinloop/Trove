@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { IconStats, IconTasks, IconWall } from './Icons'
+import { IconMe, IconStats, IconTasks, IconWall } from './Icons'
 
 interface Props {
   onAdd: () => void
@@ -23,7 +23,8 @@ export function BottomBar({ onAdd, onMe }: Props) {
         统计
       </NavLink>
       <button className="bnav" onClick={onMe}>
-        <span>○</span>我的
+        <IconMe size={20} />
+        我的
       </button>
       <button className="fab" onClick={onAdd} aria-label="添加">
         ＋
