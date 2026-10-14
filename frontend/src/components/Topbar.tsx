@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFilters } from '../hooks/useFilters'
+import { LogoMark } from './Icons'
 
 interface Props {
   theme: 'light' | 'dark'
@@ -26,7 +27,9 @@ export function Topbar({ theme, onToggleTheme, onAdd, onMe }: Props) {
   return (
     <header className="topbar">
       <div className="tb-brand">
-        <span className="logo sm">C</span>
+        <span className="logo sm">
+          <LogoMark size={17} />
+        </span>
         <b>Trove</b>
       </div>
       <div className="search">

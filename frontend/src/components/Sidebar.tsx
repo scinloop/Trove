@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useFilters } from '../hooks/useFilters'
 import { useMeta, useStats } from '../hooks/queries'
-import { IconStats, IconTasks, IconWall } from './Icons'
+import { IconStats, IconTasks, IconWall, LogoMark } from './Icons'
 import type { Category } from '../types'
 
 export function Sidebar() {
@@ -14,7 +14,9 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="logo">T</span>
+        <span className="logo">
+          <LogoMark size={22} />
+        </span>
         <div>
           <b>Trove</b>
           <i>个人收藏站</i>
@@ -56,7 +58,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="side-foot">
-        <span>Trove v0.2 · React + FastAPI + SQLite</span>
+        <span>Trove v0.3 · React + FastAPI + SQLite</span>
       </div>
     </aside>
   )

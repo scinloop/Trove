@@ -75,3 +75,15 @@ export function IconMe({ size = 18, className }: IconProps) {
     </svg>
   )
 }
+
+/** Trove · 宝箱 logo（treasure chest + sparkle） */
+export function LogoMark({ size = 20, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M3 11V8.5A4.5 4.5 0 0 1 7.5 4h9A4.5 4.5 0 0 1 21 8.5V11" />
+      <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8Z" />
+      <path d="M12 11v4" />
+      <path d="M19.5 1.5v2.4M18.3 2.7h2.4" />
+    </svg>
+  )
+}
