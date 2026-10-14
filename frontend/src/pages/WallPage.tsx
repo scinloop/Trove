@@ -2,14 +2,17 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { CategoryChips } from '../components/Chips'
 import { ItemCard } from '../components/ItemCard'
+import { Pager } from '../components/Pager'
 import { StatMinis } from '../components/StatMinis'
 import { useFilters } from '../hooks/useFilters'
 import { useMeta, useStats } from '../hooks/queries'
 import type { Item } from '../types'
 
+const PAGE_SIZE = 60
+
 export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const meta = useMeta()
-  const { cat, sub, q, sort } = useFilters()
+  const { cat, sub, q, sort, page, setPage } = useFilters()
   const stats = useStats()
 
   const list = useQuery({
@@ -25,6 +28,9 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
 
   const s = stats.data
   const items = list.data ?? []
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const curPage = Math.min(page, totalPages)
+  const shown = items.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE)
 
   return (
     <div className="view">
@@ -39,6 +45,7 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
       <CategoryChips meta={meta} />
       <p className="count">
         共 {items.length} 件收藏{q ? ` · 关键词「${q}」` : ''}
+        {totalPages > 1 && ` · 第 ${curPage}/${totalPages} 页`}
       </p>
       {list.isError ? (
         <p className="count">加载失败：{list.error.message}</p>
@@ -53,11 +60,14 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
           </div>
         </div>
       ) : (
-        <div className="grid">
-          {items.map((it, i) => (
-            <ItemCard key={it.id} item={it} index={i} onOpen={onOpen} />
-          ))}
-        </div>
+        <>
+          <div className="grid">
+            {shown.map((it, i) => (
+              <ItemCard key={it.id} item={it} index={i} onOpen={onOpen} />
+            ))}
+          </div>
+          <Pager page={curPage} totalPages={totalPages} onChange={setPage} />
+        </>
       )}
     </div>
   )

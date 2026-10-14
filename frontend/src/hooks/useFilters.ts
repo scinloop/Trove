@@ -16,6 +16,7 @@ export function useFilters() {
   const sub = (params.get('sub') as SubFilter) || 'all'
   const q = params.get('q') ?? ''
   const sort = (params.get('sort') as SortKey) || 'recent'
+  const page = Math.max(1, Number(params.get('page')) || 1)
 
   const apply = (next: URLSearchParams) => {
     const s = next.toString()
@@ -27,6 +28,7 @@ export function useFilters() {
     if (value === 'all') next.delete('cat')
     else next.set('cat', value)
     next.delete('sub') // 切换分类时重置子类型筛选
+    next.delete('page') // 筛选变化回到第一页
     apply(next)
   }
 
@@ -34,6 +36,7 @@ export function useFilters() {
     const next = new URLSearchParams(params)
     if (value === 'all') next.delete('sub')
     else next.set('sub', value)
+    next.delete('page')
     apply(next)
   }
 
@@ -41,6 +44,7 @@ export function useFilters() {
     const next = new URLSearchParams(params)
     if (value === 'recent') next.delete('sort')
     else next.set('sort', value)
+    next.delete('page')
     apply(next)
   }
 
@@ -48,8 +52,16 @@ export function useFilters() {
     const next = new URLSearchParams(params)
     if (value) next.set('q', value)
     else next.delete('q')
+    next.delete('page')
     apply(next)
   }
 
-  return { cat, sub, q, sort, setCat, setSub, setSort, setQ }
+  const setPage = (value: number) => {
+    const next = new URLSearchParams(params)
+    if (value <= 1) next.delete('page')
+    else next.set('page', String(value))
+    apply(next)
+  }
+
+  return { cat, sub, q, sort, page, setCat, setSub, setSort, setQ, setPage }
 }

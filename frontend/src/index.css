@@ -444,6 +444,54 @@ select {
   outline: none;
 }
 
+/* ---------- 分页 ---------- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.pg-b {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12.5px;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.pg-b:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.pg-b.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.pg-b:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pg-gap {
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 0 2px;
+}
+
 /* ---------- wall ---------- */
 
 .count {
