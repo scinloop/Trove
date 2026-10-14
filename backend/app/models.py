@@ -13,7 +13,9 @@ class Item(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(200), index=True)
     category: Mapped[str] = mapped_column(String(20), index=True)  # comic|novel|anime|character|video|game|movie|clothing|shortdrama
-    sub_type: Mapped[str | None] = mapped_column(String(20))       # 题材 key（genres 表），可空
+    sub_type: Mapped[str | None] = mapped_column(String(20))       # legacy 单题材（已迁往 sub_types，保留列以便老库回滚）
+    sub_types: Mapped[list | None] = mapped_column(JSON)           # 多选题材 key 列表（genres 表），空 = 未设置
+    work_status: Mapped[str | None] = mapped_column(String(12))    # 作品状态：upcoming|ongoing|finished，可空
     source: Mapped[str | None] = mapped_column(String(200))        # 来源作品 / 作者 / 平台
     rating: Mapped[int] = mapped_column(Integer, default=3)        # 0-5
     status: Mapped[str] = mapped_column(String(10), default="doing", index=True)  # wish|doing|done
@@ -47,6 +49,7 @@ class Tag(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     label: Mapped[str] = mapped_column(String(50), unique=True)
+    group: Mapped[str | None] = mapped_column(String(20))          # 标签分组（服装/体型/玩法/行为/角色…），可空 = 未分组
     color: Mapped[str] = mapped_column(String(20), default="#71717a")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 

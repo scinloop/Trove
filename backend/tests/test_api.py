@@ -13,7 +13,7 @@ from app.seed import ensure_genres
 CHARACTER_ITEM = {
     "title": "雷电将军",
     "category": "character",
-    "sub_type": "game",
+    "sub_types": ["game"],
     "source": "原神",
     "rating": 5,
     "status": "done",
@@ -73,6 +73,8 @@ async def test_meta(client):
     assert [g["key"] for g in meta["genres"]["comic"]] == ["jp", "kr", "other"]
     assert len(meta["genres"]["novel"]) == 12
     assert meta["genre_required"] == ["character", "comic"]
+    assert [w["key"] for w in meta["work_status"]] == ["upcoming", "ongoing", "finished"]
+    assert "角色" in meta["tag_groups"] and "服装" in meta["tag_groups"]
 
 
 async def test_create_and_get(client):
@@ -80,13 +82,14 @@ async def test_create_and_get(client):
     assert r.status_code == 201
     body = r.json()
     assert body["id"] > 0
+    assert body["sub_types"] == ["game"]
     assert body["emoji"] == "🎴"  # default emoji applied
     r2 = await client.get(f"/api/items/{body['id']}")
     assert r2.status_code == 200
     assert r2.json()["title"] == "雷电将军"
 
 
-async def test_character_requires_sub_type(client):
+async def test_character_requires_sub_types(client):
     r = await client.post("/api/items", json={"title": "x", "category": "character"})
     assert r.status_code == 422
 
@@ -96,20 +99,63 @@ async def test_invalid_category(client):
     assert r.status_code == 422
 
 
-async def test_sub_type_validation(client):
-    # 小说可选题材；选了就必须是题材库里的 key
-    r = await client.post("/api/items", json={"title": "三体", "category": "novel", "sub_type": "kehuan"})
+async def test_sub_types_validation(client):
+    # 小说可选题材：0 个、1 个或多个都可以
+    r = await client.post("/api/items", json={"title": "无题材的书", "category": "novel"})
     assert r.status_code == 201
-    assert r.json()["sub_type"] == "kehuan"
+    assert r.json()["sub_types"] == []
 
-    r = await client.post("/api/items", json={"title": "x", "category": "novel", "sub_type": "game"})
-    assert r.status_code == 422  # 角色的题材不能用在小说上
+    r = await client.post("/api/items", json={"title": "三体", "category": "novel", "sub_types": ["kehuan"]})
+    assert r.status_code == 201
+    assert r.json()["sub_types"] == ["kehuan"]
+
+    r = await client.post(
+        "/api/items",
+        json={"title": "混合题材", "category": "novel", "sub_types": ["xuanhuan", "chuanyue", "xitong"]},
+    )
+    assert r.status_code == 201
+    assert r.json()["sub_types"] == ["xuanhuan", "chuanyue", "xitong"]
+
+    # 角色的题材不能用在小说上
+    r = await client.post("/api/items", json={"title": "x", "category": "novel", "sub_types": ["game"]})
+    assert r.status_code == 422
+
+    # 重复 key 自动去重
+    r = await client.post(
+        "/api/items", json={"title": "去重", "category": "novel", "sub_types": ["kehuan", "kehuan"]}
+    )
+    assert r.status_code == 201
+    assert r.json()["sub_types"] == ["kehuan"]
+
+
+async def test_work_status(client):
+    r = await client.post(
+        "/api/items",
+        json={"title": "连载中的漫画", "category": "comic", "sub_types": ["kr"], "work_status": "ongoing"},
+    )
+    assert r.status_code == 201
+    assert r.json()["work_status"] == "ongoing"
+
+    r = await client.post(
+        "/api/items",
+        json={"title": "完结的漫画", "category": "comic", "sub_types": ["jp"], "work_status": "finished"},
+    )
+    assert r.status_code == 201
+
+    r = await client.post(
+        "/api/items", json={"title": "x", "category": "comic", "sub_types": ["jp"], "work_status": "foo"}
+    )
+    assert r.status_code == 422
+
+    # 不设置 work_status = None（未设置）
+    r = await client.post("/api/items", json={"title": "x", "category": "comic", "sub_types": ["jp"]})
+    assert r.status_code == 201 and r.json()["work_status"] is None
 
 
 async def test_list_filter_search_sort(client):
     await client.post("/api/items", json=CHARACTER_ITEM)
-    await client.post("/api/items", json={"title": "海贼王", "category": "comic", "sub_type": "jp", "rating": 5, "tags": ["热血"]})
-    await client.post("/api/items", json={"title": "咒术回战", "category": "comic", "sub_type": "kr", "rating": 4})
+    await client.post("/api/items", json={"title": "海贼王", "category": "comic", "sub_types": ["jp"], "rating": 5, "tags": ["热血"]})
+    await client.post("/api/items", json={"title": "咒术回战", "category": "comic", "sub_types": ["kr"], "rating": 4})
 
     r = await client.get("/api/items", params={"category": "comic"})
     assert [i["title"] for i in r.json()] == ["咒术回战", "海贼王"]  # recent sort: newest first
@@ -140,7 +186,11 @@ async def test_patch(client):
     assert r.status_code == 200
     body = r.json()
     assert body["favorite"] is False and body["rating"] == 4
-    assert body["sub_type"] == "game"  # untouched fields preserved
+    assert body["sub_types"] == ["game"]  # untouched fields preserved
+
+    # 多选题材可以直接改
+    r = await client.patch(f"/api/items/{item_id}", json={"sub_types": ["game", "anime_manga"]})
+    assert r.json()["sub_types"] == ["game", "anime_manga"]
 
 
 async def test_patch_to_character_without_sub_rejected(client):
@@ -173,18 +223,27 @@ async def test_stats(client):
     assert len(stats["recent"]) == 2
 
 
+async def test_stats_character_split_multi(client):
+    # 同时挂两个角色题材：两边都计数
+    await client.post(
+        "/api/items", json={"title": "两栖角色", "category": "character", "sub_types": ["game", "anime_manga"]}
+    )
+    stats = (await client.get("/api/stats")).json()
+    assert stats["character_split"] == {"game": 1, "anime_manga": 1}
+
+
 async def test_comic_sub_types(client):
-    r = await client.post("/api/items", json={"title": "我独自升级", "category": "comic", "sub_type": "kr"})
+    r = await client.post("/api/items", json={"title": "我独自升级", "category": "comic", "sub_types": ["kr"]})
     assert r.status_code == 201
-    assert r.json()["sub_type"] == "kr"
+    assert r.json()["sub_types"] == ["kr"]
 
     r = await client.post("/api/items", json={"title": "x", "category": "comic"})
-    assert r.status_code == 422  # 漫画必须选题材
+    assert r.status_code == 422  # 漫画必须至少选一个题材
 
-    r = await client.post("/api/items", json={"title": "x", "category": "comic", "sub_type": "game"})
+    r = await client.post("/api/items", json={"title": "x", "category": "comic", "sub_types": ["game"]})
     assert r.status_code == 422  # 不能借用角色分类的题材
 
-    r = await client.post("/api/items", json={"title": "x", "category": "character", "sub_type": "jp"})
+    r = await client.post("/api/items", json={"title": "x", "category": "character", "sub_types": ["jp"]})
     assert r.status_code == 422
 
 
@@ -246,7 +305,7 @@ async def test_genres_manage(client):
     r = await client.patch(f"/api/genres/{genre['id']}", json={"label": "无限流小说"})
     assert r.json()["label"] == "无限流小说"
 
-    r = await client.post("/api/items", json={"title": "书", "category": "novel", "sub_type": genre["key"]})
+    r = await client.post("/api/items", json={"title": "书", "category": "novel", "sub_types": [genre["key"]]})
     assert r.status_code == 201
     item_id = r.json()["id"]
 
@@ -267,7 +326,7 @@ async def test_tags_manage(client):
     r = await client.post("/api/tags", json={"label": "爽文"})
     assert r.status_code == 200 and r.json()["id"] == tag["id"]  # 幂等
 
-    r = await client.post("/api/items", json={"title": "书A", "category": "novel", "sub_type": "xuanhuan", "tags": ["爽文"]})
+    r = await client.post("/api/items", json={"title": "书A", "category": "novel", "sub_types": ["xuanhuan"], "tags": ["爽文"]})
     item_id = r.json()["id"]
 
     tags = (await client.get("/api/tags")).json()
@@ -285,8 +344,24 @@ async def test_tags_manage(client):
     assert item["tags"] == ["爽文小说"]  # 删字典不影响已挂条目
 
 
+async def test_tag_groups(client):
+    # 建标签时带分组
+    r = await client.post("/api/tags", json={"label": "JK 制服", "group": "服装"})
+    assert r.status_code == 201 and r.json()["group"] == "服装"
+
+    r = await client.post("/api/tags", json={"label": "美少女", "group": "角色"})
+    tag = r.json()
+
+    # 改分组
+    r = await client.patch(f"/api/tags/{tag['id']}", json={"label": "美少女", "group": "体型"})
+    assert r.json()["group"] == "体型"
+
+    tags = (await client.get("/api/tags")).json()
+    assert any(t["label"] == "JK 制服" and t["group"] == "服装" for t in tags)
+
+
 async def test_chapters_import_and_search(client):
-    r = await client.post("/api/items", json={"title": "少年行", "category": "novel", "sub_type": "wuxia"})
+    r = await client.post("/api/items", json={"title": "少年行", "category": "novel", "sub_types": ["wuxia"]})
     item_id = r.json()["id"]
 
     r = await client.post(f"/api/items/{item_id}/chapters/paste", json={"text": NOVEL_TEXT})

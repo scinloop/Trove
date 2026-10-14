@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
-import { catOf, fmtWords, genreOf, statusLabel } from '../lib/labels'
+import { catOf, fmtWords, genresOf, statusLabel, workStatusOf } from '../lib/labels'
 import { useToast } from './Toast'
 import type { Item, ItemInput } from '../types'
 
@@ -23,7 +23,8 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = genreOf(meta, item.category, item.sub_type)
+  const subMetas = genresOf(meta, item.category, item.sub_types)
+  const ws = workStatusOf(meta, item.work_status)
 
   const isNovel = item.category === 'novel'
   const chaptersQ = useQuery({
@@ -51,7 +52,8 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
       const input: ItemInput = {
         title: item.title,
         category: item.category,
-        sub_type: item.sub_type,
+        sub_types: item.sub_types,
+        work_status: item.work_status,
         source: item.source,
         rating: item.rating,
         status: item.status,
@@ -99,10 +101,16 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               <i style={{ background: color }} />
               {cat?.label ?? item.category}
             </span>
-            {subMeta && (
+            {subMetas.map((g) => (
+              <span className="pill" key={g.key}>
+                <i style={{ background: g.color }} />
+                {g.label}
+              </span>
+            ))}
+            {ws && (
               <span className="pill">
-                <i style={{ background: subMeta.color }} />
-                {subMeta.label}
+                <i style={{ background: ws.color }} />
+                {ws.label}
               </span>
             )}
             <span className="pill">

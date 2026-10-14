@@ -24,9 +24,9 @@ async def list_tags(session: AsyncSession = Depends(get_session)) -> list[dict]:
 
 @router.post("")
 async def create_tag(data: TagCreate, response: Response, session: AsyncSession = Depends(get_session)) -> dict:
-    tag, created = await crud.create_tag(session, data.label)
+    tag, created = await crud.create_tag(session, data.label, data.group)
     response.status_code = 201 if created else 200
-    return {"id": tag.id, "label": tag.label, "color": tag.color}
+    return {"id": tag.id, "label": tag.label, "group": tag.group, "color": tag.color}
 
 
 @router.patch("/{tag_id}")
@@ -36,8 +36,8 @@ async def rename_tag(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     tag = await _get_or_404(session, tag_id)
-    tag = await crud.rename_tag(session, tag, data.label)
-    return {"id": tag.id, "label": tag.label, "color": tag.color}
+    tag = await crud.rename_tag(session, tag, data.label, data.group)
+    return {"id": tag.id, "label": tag.label, "group": tag.group, "color": tag.color}
 
 
 @router.delete("/{tag_id}", status_code=204)

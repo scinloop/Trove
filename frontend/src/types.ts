@@ -9,6 +9,7 @@ export type Category =
   | 'clothing'
   | 'shortdrama'
 export type SubType = string // genres 表里的 key（题材库可维护，不再收窄为固定联合）
+export type WorkStatus = 'upcoming' | 'ongoing' | 'finished'
 export type Status = 'wish' | 'doing' | 'done'
 export type SortKey = 'recent' | 'rating' | 'title'
 export type TaskKind = 'todo' | 'goal'
@@ -18,7 +19,8 @@ export interface Item {
   id: number
   title: string
   category: Category
-  sub_type: SubType | null
+  sub_types: SubType[] // 多选题材 key（genres 表）
+  work_status: WorkStatus | null // 作品状态：预告/更新中/已完结，null = 未设置
   source: string | null
   rating: number
   status: Status
@@ -51,9 +53,16 @@ export interface Genre extends GenreMeta {
   sort_order: number
 }
 
+export interface WorkStatusMeta {
+  key: WorkStatus
+  label: string
+  color: string
+}
+
 export interface Tag {
   id: number
   label: string
+  group: string | null // 分组：服装/体型/玩法/行为/角色…，null = 未分组
   color: string
   usage: number
 }
@@ -94,6 +103,8 @@ export interface Meta {
   categories: CategoryMeta[]
   genres: Record<string, GenreMeta[]>
   genre_required: string[]
+  work_status: WorkStatusMeta[]
+  tag_groups: string[]
   status_colors: Record<string, string>
   status_labels: Record<string, Record<string, string>>
   task_kinds: string[]
@@ -124,7 +135,8 @@ export interface Stats {
 export interface ItemInput {
   title: string
   category: Category
-  sub_type: SubType | null
+  sub_types: SubType[]
+  work_status: WorkStatus | null
   source: string | null
   rating: number
   status: Status

@@ -49,6 +49,17 @@ GENRE_SEEDS: dict[str, list[tuple[str, str, str | None]]] = {
 # 这些分类必须选择题材（存量规则：角色/漫画）
 REQUIRED_GENRE_CATEGORIES: list[str] = ["character", "comic"]
 
+# 作品状态（连载进度，与收藏进度 wish/doing/done 相互独立；可空 = 未设置）
+WORK_STATUS: dict[str, dict] = {
+    "upcoming": {"label": "预告", "color": "#f59e0b"},
+    "ongoing": {"label": "更新中", "color": "#3b82f6"},
+    "finished": {"label": "已完结", "color": "#22c55e"},
+}
+WORK_STATUS_KEYS: list[str] = list(WORK_STATUS)
+
+# 标签分组（标签库按组归类，如：服装/体型/玩法/行为/角色…）
+TAG_GROUPS: list[str] = ["服装", "体型", "玩法", "行为", "角色", "风格", "场景", "情感"]
+
 GENRE_PALETTE: list[str] = [
     "#f97316", "#14b8a6", "#8b5cf6", "#ec4899", "#0ea5e9", "#6366f1",
     "#f43f5e", "#f59e0b", "#10b981", "#ef4444", "#84cc16", "#06b6d4",

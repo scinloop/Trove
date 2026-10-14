@@ -6,7 +6,7 @@ import { statusLabel } from '../lib/labels'
 import { IconImage } from './Icons'
 import { TagPicker } from './TagPicker'
 import { useToast } from './Toast'
-import type { Category, Item, ItemInput, Status, SubType } from '../types'
+import type { Category, Item, ItemInput, Status, SubType, WorkStatus } from '../types'
 
 const STATUS_KEYS: Status[] = ['wish', 'doing', 'done']
 
@@ -26,7 +26,8 @@ export function ItemForm({ item, onClose }: Props) {
       ? {
           title: item.title,
           category: item.category,
-          sub_type: item.sub_type,
+          sub_types: item.sub_types ?? [],
+          work_status: item.work_status,
           source: item.source ?? '',
           rating: item.rating,
           status: item.status,
@@ -39,7 +40,8 @@ export function ItemForm({ item, onClose }: Props) {
       : {
           title: '',
           category: 'anime',
-          sub_type: null,
+          sub_types: [],
+          work_status: null,
           source: '',
           rating: 3,
           status: 'doing',
@@ -51,9 +53,15 @@ export function ItemForm({ item, onClose }: Props) {
         },
   )
 
-  // 当前分类的题材列表（题材库可维护）；角色/漫画必选
+  // 当前分类的题材列表（题材库可维护，可多选）；角色/漫画至少选一个
   const subs = meta.genres[form.category] ?? []
   const required = meta.genre_required.includes(form.category)
+
+  const toggleGenre = (key: SubType) =>
+    setForm((f) => ({
+      ...f,
+      sub_types: f.sub_types.includes(key) ? f.sub_types.filter((k) => k !== key) : [...f.sub_types, key],
+    }))
 
   const mut = useMutation({
     mutationFn: (input: ItemInput) => (item ? api.update(item.id, input) : api.create(input)),
@@ -72,16 +80,18 @@ export function ItemForm({ item, onClose }: Props) {
       toast('标题不能为空哦')
       return
     }
-    if (required && !subs.some((g) => g.key === form.sub_type)) {
-      toast(`「${meta.categories.find((c) => c.key === form.category)?.label}」需要选择题材`)
+    const keys = subs.map((g) => g.key)
+    const subTypes = form.sub_types.filter((k) => keys.includes(k))
+    if (required && subTypes.length === 0) {
+      toast(`「${meta.categories.find((c) => c.key === form.category)?.label}」需要至少选择一个题材`)
       return
     }
     mut.mutate({
       ...form,
       title,
+      sub_types: subTypes,
       source: form.source?.trim() || null,
       note: form.note?.trim() || null,
-      sub_type: form.sub_type && subs.some((g) => g.key === form.sub_type) ? form.sub_type : null,
       emoji: form.emoji,
     })
   }
@@ -126,9 +136,12 @@ export function ItemForm({ item, onClose }: Props) {
                     ...f,
                     category: c.key as Category,
                     emoji: null,
-                    sub_type: meta.genre_required.includes(c.key)
-                      ? ((meta.genres[c.key] ?? [])[0]?.key as SubType | undefined) ?? null
-                      : null,
+                    // 切换分类：必选题材的分类默认选第一个，其余清空
+                    sub_types: meta.genre_required.includes(c.key)
+                      ? [((meta.genres[c.key] ?? [])[0]?.key as SubType | undefined)].filter(
+                          (k): k is SubType => !!k,
+                        )
+                      : [],
                   }))
                 }
               >
@@ -138,22 +151,18 @@ export function ItemForm({ item, onClose }: Props) {
           </div>
           {subs.length > 0 && (
             <>
-              <label>{genreLabel}{required ? ' *' : '（可选）'}</label>
+              <label>
+                {genreLabel}
+                {required ? ' *（至少一个，可多选）' : '（可选，可多选）'}
+              </label>
               <div className="seg wrap">
-                {!required && (
-                  <button
-                    className={'seg-b sm' + (!form.sub_type ? ' on' : '')}
-                    onClick={() => setForm((f) => ({ ...f, sub_type: null }))}
-                  >
-                    不设置
-                  </button>
-                )}
                 {subs.map((g) => (
                   <button
                     key={g.key}
-                    className={'seg-b sm' + (form.sub_type === g.key ? ' on' : '')}
-                    onClick={() => setForm((f) => ({ ...f, sub_type: g.key }))}
+                    className={'seg-b sm' + (form.sub_types.includes(g.key) ? ' on' : '')}
+                    onClick={() => toggleGenre(g.key)}
                   >
+                    {form.sub_types.includes(g.key) ? '✓ ' : ''}
                     {g.label}
                   </button>
                 ))}
@@ -197,7 +206,25 @@ export function ItemForm({ item, onClose }: Props) {
               </button>
             ))}
           </div>
-          <label>标签（从标签库选择，可新建）</label>
+          <label>作品状态（可选）</label>
+          <div className="seg">
+            <button
+              className={'seg-b sm' + (!form.work_status ? ' on' : '')}
+              onClick={() => setForm((f) => ({ ...f, work_status: null }))}
+            >
+              未设置
+            </button>
+            {meta.work_status.map((w) => (
+              <button
+                key={w.key}
+                className={'seg-b sm' + (form.work_status === w.key ? ' on' : '')}
+                onClick={() => setForm((f) => ({ ...f, work_status: w.key as WorkStatus }))}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
+          <label>标签（按分组选择，可新建）</label>
           <TagPicker value={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
           <label>图片（服装展示 / 封面，可选）</label>
           {form.image_url ? (

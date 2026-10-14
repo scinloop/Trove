@@ -35,7 +35,8 @@ async def list_items(
     if category:
         stmt = stmt.where(Item.category == category)
     if sub:
-        stmt = stmt.where(Item.sub_type == sub)
+        # 多选题材：JSON 文本包含即命中
+        stmt = stmt.where(Item.sub_types.cast(String).like(f'%"{sub}"%'))
     if favorite is not None:
         stmt = stmt.where(Item.favorite == favorite)
     if q:
@@ -73,11 +74,14 @@ async def create_item(session: AsyncSession, data: ItemCreate) -> Item:
     item = Item(**data.model_dump())
     genres = await _genres_of(session, item.category)
     keys = {g.key for g in genres}
-    if item.sub_type:
-        if item.sub_type not in keys:
-            raise HTTPException(status_code=422, detail=f"未知题材: {item.sub_type}")
+    if item.sub_types:
+        unknown = [s for s in item.sub_types if s not in keys]
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"未知题材: {', '.join(unknown)}")
     elif item.category in REQUIRED_GENRE_CATEGORIES:
-        raise HTTPException(status_code=422, detail=f"「{CATEGORY_LABEL.get(item.category, item.category)}」需要选择题材")
+        raise HTTPException(
+            status_code=422, detail=f"「{CATEGORY_LABEL.get(item.category, item.category)}」需要至少选择一个题材"
+        )
     if not item.emoji:
         item.emoji = CATEGORY_EMOJI.get(item.category)
     session.add(item)
@@ -93,29 +97,29 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
     new_category = merged["category"]
     genres = await _genres_of(session, new_category)
     keys = {g.key for g in genres}
+    # 过滤掉不属于该分类的题材 key（失效/拼错的直接丢弃）
+    subs = [s for s in (merged.get("sub_types") or []) if s in keys]
     if "category" in changes:
         # 切换分类：严格校验（表单总是随分类提交题材）
-        if keys:
-            if merged.get("sub_type") not in keys:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"「{CATEGORY_LABEL.get(new_category, new_category)}」需要选择题材",
-                )
-        else:
-            merged["sub_type"] = None
+        if not subs and new_category in REQUIRED_GENRE_CATEGORIES and keys:
+            raise HTTPException(
+                status_code=422,
+                detail=f"「{CATEGORY_LABEL.get(new_category, new_category)}」需要至少选择一个题材",
+            )
     elif keys:
-        if merged.get("sub_type") not in keys:
+        if not subs and new_category in REQUIRED_GENRE_CATEGORIES:
             # 兼容存量数据（如未填写题材的旧漫画）：自动归入第一个题材
-            merged["sub_type"] = genres[0].key
+            subs = [genres[0].key]
     else:
-        merged["sub_type"] = None
+        subs = []
+    merged["sub_types"] = subs
     try:
-        ItemBase(**merged)  # category/status 校验
+        ItemBase(**merged)  # category/status/work_status 校验
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     for field, value in changes.items():
         setattr(item, field, value)
-    item.sub_type = merged["sub_type"]
+    item.sub_types = subs
     if not item.emoji:
         item.emoji = CATEGORY_EMOJI.get(item.category)
     await session.commit()
@@ -173,7 +177,10 @@ async def move_genre(session: AsyncSession, genre: Genre, direction: str) -> Non
 
 async def delete_genre(session: AsyncSession, genre: Genre) -> None:
     used = await session.scalar(
-        select(func.count()).select_from(Item).where(Item.category == genre.category, Item.sub_type == genre.key)
+        select(func.count()).select_from(Item).where(
+            Item.category == genre.category,
+            Item.sub_types.cast(String).like(f'%"{genre.key}"%'),
+        )
     )
     if used:
         raise HTTPException(status_code=409, detail=f"「{genre.label}」下还有 {used} 条收藏，先移走再删除")
@@ -188,28 +195,29 @@ async def list_tags(session: AsyncSession) -> list[dict]:
     rows = (await session.execute(select(Item.tags))).scalars().all()
     counter: Counter = Counter(t for lst in rows if lst for t in lst)
     return [
-        {"id": t.id, "label": t.label, "color": t.color, "usage": counter.get(t.label, 0)}
+        {"id": t.id, "label": t.label, "group": t.group, "color": t.color, "usage": counter.get(t.label, 0)}
         for t in tags
     ]
 
 
-async def create_tag(session: AsyncSession, label: str) -> tuple[Tag, bool]:
-    """返回 (标签, 是否新建)；已存在时幂等返回。"""
+async def create_tag(session: AsyncSession, label: str, group: str | None = None) -> tuple[Tag, bool]:
+    """返回 (标签, 是否新建)；已存在时幂等返回（不覆盖已有分组）。"""
     label = label.strip()
     existing = await session.scalar(select(Tag).where(Tag.label == label))
     if existing:
         return existing, False
     count = (await session.execute(select(func.count()).select_from(Tag))).scalar_one()
-    tag = Tag(label=label, color=genre_color(label, count))
+    tag = Tag(label=label, group=group, color=genre_color(label, count))
     session.add(tag)
     await session.commit()
     await session.refresh(tag)
     return tag, True
 
 
-async def rename_tag(session: AsyncSession, tag: Tag, new_label: str) -> Tag:
+async def rename_tag(session: AsyncSession, tag: Tag, new_label: str, group: str | None = None) -> Tag:
     old = tag.label
     tag.label = new_label.strip()
+    tag.group = group  # None = 未分组
     rows = await session.execute(select(Item).where(Item.tags.cast(String).like(f'%"{old}"%')))
     for it in rows.scalars():
         it.tags = [new_label.strip() if t == old else t for t in (it.tags or [])]

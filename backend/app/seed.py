@@ -98,7 +98,7 @@ async def seed_if_empty() -> int:
             Item(
                 title=title,
                 category=category,
-                sub_type=sub_type,
+                sub_types=[sub_type] if sub_type else [],
                 source=source,
                 rating=rating,
                 status=status,

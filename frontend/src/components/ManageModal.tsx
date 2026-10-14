@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type KeyboardEvent } from 'react'
+import { useMemo, useState, type KeyboardEvent } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
 import { useToast } from './Toast'
@@ -16,10 +16,12 @@ export function ManageModal({ onClose }: Props) {
   const [tab, setTab] = useState<'genres' | 'tags'>('genres')
   const [cat, setCat] = useState('novel')
   const [newLabel, setNewLabel] = useState('')
+  const [newTagGroup, setNewTagGroup] = useState('') // '' = 未分组
   const [gEdit, setGEdit] = useState<number | null>(null)
   const [gLabel, setGLabel] = useState('')
   const [tEdit, setTEdit] = useState<number | null>(null)
   const [tLabel, setTLabel] = useState('')
+  const [tGroup, setTGroup] = useState('') // 编辑标签时的分组
   const [tagSearch, setTagSearch] = useState('')
 
   const genresQ = useQuery({ queryKey: ['genres'], queryFn: api.genres })
@@ -34,7 +36,7 @@ export function ManageModal({ onClose }: Props) {
   const addMut = useMutation({
     mutationFn: async () => {
       if (tab === 'genres') await api.createGenre(cat, newLabel.trim())
-      else await api.createTag(newLabel.trim())
+      else await api.createTag(newLabel.trim(), newTagGroup || null)
     },
     onSuccess: () => {
       setNewLabel('')
@@ -67,11 +69,12 @@ export function ManageModal({ onClose }: Props) {
   })
 
   const tRename = useMutation({
-    mutationFn: (p: { id: number; label: string }) => api.renameTag(p.id, p.label),
+    mutationFn: (p: { id: number; label: string; group: string | null }) =>
+      api.renameTag(p.id, p.label, p.group),
     onSuccess: () => {
       setTEdit(null)
       invalidate()
-      toast('已重命名，条目同步更新')
+      toast('已保存，条目同步更新')
     },
     onError: (e) => toast((e as Error).message),
   })
@@ -95,8 +98,28 @@ export function ManageModal({ onClose }: Props) {
   }
 
   const genres = (genresQ.data ?? []).filter((g) => g.category === cat)
-  const tags = (tagsQ.data ?? []).filter((t) => !tagSearch.trim() || t.label.includes(tagSearch.trim()))
   const catLabel = meta.categories.find((c) => c.key === cat)?.label ?? cat
+
+  // 标签分组：meta 定义 → 库中其他组 → 未分组
+  const library = tagsQ.data ?? []
+  const tagGroupNames = useMemo(() => {
+    const known = [...meta.tag_groups]
+    const extras = [
+      ...new Set(library.map((t) => t.group).filter((g): g is string => !!g && !known.includes(g))),
+    ]
+    const hasUngrouped = library.some((t) => !t.group)
+    return [...known, ...extras, ...(hasUngrouped ? ['未分组'] : [])]
+  }, [meta.tag_groups, library])
+  const kw = tagSearch.trim()
+  const groupsWithData = tagGroupNames
+    .map((name) => ({
+      name,
+      tags: library.filter(
+        (t) =>
+          (name === '未分组' ? !t.group : t.group === name) && (!kw || t.label.includes(kw)),
+      ),
+    }))
+    .filter((g) => g.tags.length > 0)
 
   return (
     <div
@@ -201,53 +224,78 @@ export function ManageModal({ onClose }: Props) {
               onChange={(e) => setTagSearch(e.target.value)}
             />
             <div className="manage-list">
-              {tags.map((t) => (
-                <div className="manage-row" key={t.id}>
-                  <i className="tdot" style={{ background: t.color }} />
-                  {tEdit === t.id ? (
-                    <input
-                      className="mi-edit"
-                      value={tLabel}
-                      onChange={(e) => setTLabel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') tRename.mutate({ id: t.id, label: tLabel })
-                        if (e.key === 'Escape') setTEdit(null)
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <b className="mi-label">{t.label}</b>
-                  )}
-                  <span className="mi-usage">{t.usage} 处</span>
-                  <span className="grow" />
-                  {tEdit === t.id ? (
-                    <>
-                      <button className="mini-btn primary" onClick={() => tRename.mutate({ id: t.id, label: tLabel })}>
-                        保存
-                      </button>
-                      <button className="mini-btn" onClick={() => setTEdit(null)}>
-                        取消
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="mini-btn"
-                        onClick={() => {
-                          setTEdit(t.id)
-                          setTLabel(t.label)
-                        }}
-                      >
-                        改名
-                      </button>
-                      <button className="mini-btn danger" onClick={() => tDel.mutate(t.id)}>
-                        删除
-                      </button>
-                    </>
-                  )}
+              {groupsWithData.map((group) => (
+                <div className="mi-group" key={group.name}>
+                  <b className="mi-group-label">{group.name}</b>
+                  {group.tags.map((t) => (
+                    <div className="manage-row" key={t.id}>
+                      <i className="tdot" style={{ background: t.color }} />
+                      {tEdit === t.id ? (
+                        <>
+                          <input
+                            className="mi-edit"
+                            value={tLabel}
+                            onChange={(e) => setTLabel(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter')
+                                tRename.mutate({ id: t.id, label: tLabel, group: tGroup || null })
+                              if (e.key === 'Escape') setTEdit(null)
+                            }}
+                            autoFocus
+                          />
+                          <select
+                            className="mi-select"
+                            value={tGroup}
+                            onChange={(e) => setTGroup(e.target.value)}
+                            title="分组"
+                          >
+                            <option value="">未分组</option>
+                            {meta.tag_groups.map((g) => (
+                              <option key={g} value={g}>
+                                {g}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : (
+                        <b className="mi-label">{t.label}</b>
+                      )}
+                      <span className="mi-usage">{t.usage} 处</span>
+                      <span className="grow" />
+                      {tEdit === t.id ? (
+                        <>
+                          <button
+                            className="mini-btn primary"
+                            onClick={() => tRename.mutate({ id: t.id, label: tLabel, group: tGroup || null })}
+                          >
+                            保存
+                          </button>
+                          <button className="mini-btn" onClick={() => setTEdit(null)}>
+                            取消
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="mini-btn"
+                            onClick={() => {
+                              setTEdit(t.id)
+                              setTLabel(t.label)
+                              setTGroup(t.group ?? '')
+                            }}
+                          >
+                            编辑
+                          </button>
+                          <button className="mini-btn danger" onClick={() => tDel.mutate(t.id)}>
+                            删除
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ))}
-              {tags.length === 0 && <p className="none">没有匹配的标签</p>}
+              {groupsWithData.length === 0 && <p className="none">没有匹配的标签</p>}
             </div>
           </>
         )}
@@ -262,6 +310,21 @@ export function ManageModal({ onClose }: Props) {
               placeholder={tab === 'genres' ? '如：无限流' : '如：泪目'}
               autoFocus
             />
+            {tab === 'tags' && (
+              <select
+                className="mi-select"
+                value={newTagGroup}
+                onChange={(e) => setNewTagGroup(e.target.value)}
+                title="新标签的分组"
+              >
+                <option value="">未分组</option>
+                {meta.tag_groups.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            )}
             <button className="btn primary sm" onClick={submitAdd} disabled={!newLabel.trim() || addMut.isPending}>
               添加
             </button>

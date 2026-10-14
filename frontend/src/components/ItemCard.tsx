@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMeta } from '../hooks/queries'
 import { useToggleFavorite } from '../hooks/useToggleFavorite'
-import { catOf, genreOf, statusLabel } from '../lib/labels'
+import { catOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
 import type { Item } from '../types'
 
 interface Props {
@@ -17,7 +17,9 @@ export function ItemCard({ item, index, onOpen }: Props) {
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
-  const subMeta = genreOf(meta, item.category, item.sub_type)
+  const subMetas = genresOf(meta, item.category, item.sub_types).slice(0, 2)
+  const extraGenres = (item.sub_types?.length ?? 0) - subMetas.length
+  const ws = workStatusOf(meta, item.work_status)
 
   return (
     <article
@@ -36,13 +38,23 @@ export function ItemCard({ item, index, onOpen }: Props) {
             <i style={{ background: color }} />
             {cat?.label ?? item.category}
           </span>
-          {subMeta && (
+          {subMetas.map((g) => (
+            <span className="pill" key={g.key}>
+              <i style={{ background: g.color }} />
+              {g.label}
+            </span>
+          ))}
+          {extraGenres > 0 && (
             <span className="pill">
-              <i style={{ background: subMeta.color }} />
-              {subMeta.label}
+              +{extraGenres}
             </span>
           )}
         </div>
+        {ws && (
+          <span className="ws-badge" style={{ background: ws.color }}>
+            {ws.label}
+          </span>
+        )}
         <button
           className={'fav' + (item.favorite ? ' on' : '') + (pop ? ' pop' : '')}
           onClick={(e) => {

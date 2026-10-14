@@ -26,8 +26,10 @@ async def get_stats(session: AsyncSession = Depends(get_session)) -> dict:
 
     for it in items:
         by_category[it.category] = by_category.get(it.category, 0) + 1
-        if it.category == "character" and it.sub_type in character_split:
-            character_split[it.sub_type] += 1
+        if it.category == "character":
+            for key in it.sub_types or []:  # 多选题材：包含即计入
+                if key in character_split:
+                    character_split[key] += 1
         if it.status == "done":
             done += 1
         rating_sum += it.rating

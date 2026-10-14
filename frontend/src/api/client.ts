@@ -66,12 +66,12 @@ export const api = {
     http<{ ok: boolean }>(`/genres/${id}/move?dir=${dir}`, { method: 'POST' }),
   deleteGenre: (id: number) => http<void>(`/genres/${id}`, { method: 'DELETE' }),
 
-  // ---- tags（标签库） ----
+  // ---- tags（标签库，带分组） ----
   tags: () => http<Tag[]>('/tags'),
-  createTag: (label: string) =>
-    http<Tag>('/tags', { method: 'POST', body: JSON.stringify({ label }) }),
-  renameTag: (id: number, label: string) =>
-    http<Tag>(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ label }) }),
+  createTag: (label: string, group: string | null = null) =>
+    http<Tag>('/tags', { method: 'POST', body: JSON.stringify({ label, group }) }),
+  renameTag: (id: number, label: string, group: string | null = null) =>
+    http<Tag>(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ label, group }) }),
   deleteTag: (id: number) => http<void>(`/tags/${id}`, { method: 'DELETE' }),
 
   // ---- chapters（小说章节） ----

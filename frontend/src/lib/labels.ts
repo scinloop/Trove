@@ -1,4 +1,4 @@
-import type { GenreMeta, Meta, Status, TaskStatus } from '../types'
+import type { GenreMeta, Meta, Status, TaskStatus, WorkStatus } from '../types'
 
 /** Fallback constants (mirrors backend /api/meta) so the UI renders even before meta loads. */
 export const FALLBACK_META: Meta = {
@@ -39,6 +39,12 @@ export const FALLBACK_META: Meta = {
     ],
   },
   genre_required: ['character', 'comic'],
+  work_status: [
+    { key: 'upcoming', label: '预告', color: '#f59e0b' },
+    { key: 'ongoing', label: '更新中', color: '#3b82f6' },
+    { key: 'finished', label: '已完结', color: '#22c55e' },
+  ],
+  tag_groups: ['服装', '体型', '玩法', '行为', '角色', '风格', '场景', '情感'],
   status_colors: { wish: '#f59e0b', doing: '#3b82f6', done: '#22c55e' },
   status_labels: {
     default: { wish: '想看', doing: '在看', done: '看完' },
@@ -70,6 +76,20 @@ export function catOf(meta: Meta, key: string) {
 export function genreOf(meta: Meta, category: string, key: string | null): GenreMeta | null {
   if (!key) return null
   return (meta.genres[category] ?? []).find((g) => g.key === key) ?? null
+}
+
+/** 条目的多选题材 → 按题材库顺序取元信息（未知 key 忽略） */
+export function genresOf(meta: Meta, category: string, keys: string[] | null | undefined): GenreMeta[] {
+  const list = meta.genres[category] ?? []
+  const order = new Map(list.map((g) => [g.key, g]))
+  return (keys ?? [])
+    .map((k) => order.get(k))
+    .filter((g): g is GenreMeta => !!g)
+}
+
+export function workStatusOf(meta: Meta, key: WorkStatus | null) {
+  if (!key) return null
+  return meta.work_status.find((w) => w.key === key) ?? null
 }
 
 /** 预计时长格式化：45 -> "45 分钟"，90 -> "1 小时 30 分钟" */

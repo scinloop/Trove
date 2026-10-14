@@ -3,13 +3,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.constants import CATEGORY_KEYS, STATUS_KEYS, TASK_KINDS
+from app.constants import CATEGORY_KEYS, STATUS_KEYS, TASK_KINDS, WORK_STATUS_KEYS
 
 
 class ItemBase(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     category: str
-    sub_type: str | None = None
+    sub_types: list[str] = Field(default_factory=list, max_length=20)  # 多选题材 key
+    work_status: str | None = None  # 作品状态：upcoming|ongoing|finished，可空
     source: str | None = Field(default=None, max_length=200)
     rating: int = Field(default=3, ge=0, le=5)
     status: str = "doing"
@@ -21,11 +22,14 @@ class ItemBase(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "ItemBase":
-        # 题材(sub_type)与分类的匹配校验需要查 genres 表，放在 crud 中做
+        # 题材(sub_types)与分类的匹配校验需要查 genres 表，放在 crud 中做
         if self.category not in CATEGORY_KEYS:
             raise ValueError(f"unknown category: {self.category}")
         if self.status not in STATUS_KEYS:
             raise ValueError(f"unknown status: {self.status}")
+        if self.work_status is not None and self.work_status not in WORK_STATUS_KEYS:
+            raise ValueError(f"unknown work_status: {self.work_status}")
+        self.sub_types = [s for s in dict.fromkeys(self.sub_types) if s]  # 去重保序、去空
         return self
 
 
@@ -36,7 +40,8 @@ class ItemCreate(ItemBase):
 class ItemUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     category: str | None = None
-    sub_type: str | None = None
+    sub_types: list[str] | None = Field(default=None, max_length=20)
+    work_status: str | None = None
     source: str | None = Field(default=None, max_length=200)
     rating: int | None = Field(default=None, ge=0, le=5)
     status: str | None = None
@@ -46,16 +51,23 @@ class ItemUpdate(BaseModel):
     emoji: str | None = Field(default=None, max_length=16)
     image_url: str | None = Field(default=None, max_length=500)
 
+    @model_validator(mode="after")
+    def _validate(self) -> "ItemUpdate":
+        if self.work_status is not None and self.work_status not in WORK_STATUS_KEYS:
+            raise ValueError(f"unknown work_status: {self.work_status}")
+        return self
+
 
 class ItemOut(BaseModel):
-    """输出模型：只做序列化，不重跑输入校验（兼容未填写题材的存量数据）。"""
+    """输出模型：只做序列化，不重跑输入校验（兼容存量数据）。"""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     title: str
     category: str
-    sub_type: str | None
+    sub_types: list[str]
+    work_status: str | None
     source: str | None
     rating: int
     status: str
@@ -90,10 +102,12 @@ class GenreUpdate(BaseModel):
 
 class TagCreate(BaseModel):
     label: str = Field(min_length=1, max_length=50)
+    group: str | None = Field(default=None, max_length=20)  # 分组：服装/体型/玩法/行为/角色…
 
 
 class TagUpdate(BaseModel):
     label: str = Field(min_length=1, max_length=50)
+    group: str | None = Field(default=None, max_length=20)
 
 
 # ---------------- chapters（小说章节） ----------------
