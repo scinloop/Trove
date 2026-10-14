@@ -10,6 +10,7 @@ export type Category =
   | 'shortdrama'
 export type SubType = string // genres 表里的 key（题材库可维护，不再收窄为固定联合）
 export type WorkStatus = 'upcoming' | 'ongoing' | 'finished'
+export type AcquireStatus = 'owned' | 'not_owned' | 'skip' | 'teaser'
 export type Status = 'wish' | 'doing' | 'done'
 export type SortKey = 'recent' | 'rating' | 'title'
 export type TaskKind = 'todo' | 'goal'
@@ -21,6 +22,7 @@ export interface Item {
   category: Category
   sub_types: SubType[] // 多选题材 key（genres 表）
   work_status: WorkStatus | null // 作品状态：预告/更新中/已完结，null = 未设置
+  acquire: AcquireStatus | null // 角色获取状态：已获取/未获取/不获取/预告中，仅 character 分类
   source: string | null
   rating: number
   status: Status
@@ -55,6 +57,12 @@ export interface Genre extends GenreMeta {
 
 export interface WorkStatusMeta {
   key: WorkStatus
+  label: string
+  color: string
+}
+
+export interface AcquireStatusMeta {
+  key: AcquireStatus
   label: string
   color: string
 }
@@ -104,6 +112,7 @@ export interface Meta {
   genres: Record<string, GenreMeta[]>
   genre_required: string[]
   work_status: WorkStatusMeta[]
+  acquire_status: AcquireStatusMeta[]
   tag_groups: string[]
   status_colors: Record<string, string>
   status_labels: Record<string, Record<string, string>>
@@ -137,6 +146,7 @@ export interface ItemInput {
   category: Category
   sub_types: SubType[]
   work_status: WorkStatus | null
+  acquire: AcquireStatus | null
   source: string | null
   rating: number
   status: Status

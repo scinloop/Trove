@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import (
+    ACQUIRE_STATUS,
     CATEGORIES,
     REQUIRED_GENRE_CATEGORIES,
     STATUS_COLORS,
@@ -33,6 +34,9 @@ async def get_meta(session: AsyncSession = Depends(get_session)) -> dict:
         "genre_required": REQUIRED_GENRE_CATEGORIES,
         "work_status": [
             {"key": k, "label": v["label"], "color": v["color"]} for k, v in WORK_STATUS.items()
+        ],
+        "acquire_status": [
+            {"key": k, "label": v["label"], "color": v["color"]} for k, v in ACQUIRE_STATUS.items()
         ],
         "tag_groups": TAG_GROUPS,
         "status_colors": STATUS_COLORS,

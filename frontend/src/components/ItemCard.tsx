@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMeta } from '../hooks/queries'
 import { useToggleFavorite } from '../hooks/useToggleFavorite'
-import { catOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
+import { catOf, acquireOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
 import type { Item } from '../types'
 
 interface Props {
@@ -20,6 +20,7 @@ export function ItemCard({ item, index, onOpen }: Props) {
   const subMetas = genresOf(meta, item.category, item.sub_types).slice(0, 2)
   const extraGenres = (item.sub_types?.length ?? 0) - subMetas.length
   const ws = workStatusOf(meta, item.work_status)
+  const ac = item.category === 'character' ? acquireOf(meta, item.acquire) : null
 
   return (
     <article
@@ -47,6 +48,12 @@ export function ItemCard({ item, index, onOpen }: Props) {
           {extraGenres > 0 && (
             <span className="pill">
               +{extraGenres}
+            </span>
+          )}
+          {ac && (
+            <span className="pill">
+              <i style={{ background: ac.color }} />
+              {ac.label}
             </span>
           )}
         </div>

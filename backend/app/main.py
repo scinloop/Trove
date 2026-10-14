@@ -33,6 +33,8 @@ async def lifespan(_: FastAPI):
                 await conn.execute(text("ALTER TABLE items ADD COLUMN sub_types JSON"))
             if "work_status" not in cols:
                 await conn.execute(text("ALTER TABLE items ADD COLUMN work_status VARCHAR(12)"))
+            if "acquire" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN acquire VARCHAR(12)"))
         tag_cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(tags)"))).fetchall()}
         if tag_cols and "group" not in tag_cols:
             await conn.execute(text('ALTER TABLE tags ADD COLUMN "group" VARCHAR(20)'))

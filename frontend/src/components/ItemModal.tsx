@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
-import { catOf, fmtWords, genresOf, statusLabel, workStatusOf } from '../lib/labels'
+import { catOf, fmtWords, acquireOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
 import { useToast } from './Toast'
 import type { Item, ItemInput } from '../types'
 
@@ -25,6 +25,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const color = cat?.color ?? '#71717a'
   const subMetas = genresOf(meta, item.category, item.sub_types)
   const ws = workStatusOf(meta, item.work_status)
+  const ac = item.category === 'character' ? acquireOf(meta, item.acquire) : null
 
   const isNovel = item.category === 'novel'
   const chaptersQ = useQuery({
@@ -54,6 +55,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
         category: item.category,
         sub_types: item.sub_types,
         work_status: item.work_status,
+        acquire: item.acquire,
         source: item.source,
         rating: item.rating,
         status: item.status,
@@ -111,6 +113,12 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               <span className="pill">
                 <i style={{ background: ws.color }} />
                 {ws.label}
+              </span>
+            )}
+            {ac && (
+              <span className="pill">
+                <i style={{ background: ac.color }} />
+                {ac.label}
               </span>
             )}
             <span className="pill">

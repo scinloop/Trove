@@ -1,4 +1,4 @@
-import type { GenreMeta, Meta, Status, TaskStatus, WorkStatus } from '../types'
+import type { AcquireStatus, GenreMeta, Meta, Status, TaskStatus, WorkStatus } from '../types'
 
 /** Fallback constants (mirrors backend /api/meta) so the UI renders even before meta loads. */
 export const FALLBACK_META: Meta = {
@@ -44,10 +44,20 @@ export const FALLBACK_META: Meta = {
     { key: 'ongoing', label: '更新中', color: '#3b82f6' },
     { key: 'finished', label: '已完结', color: '#22c55e' },
   ],
+  acquire_status: [
+    { key: 'owned', label: '已获取', color: '#22c55e' },
+    { key: 'not_owned', label: '未获取', color: '#f59e0b' },
+    { key: 'skip', label: '不获取', color: '#78716c' },
+    { key: 'teaser', label: '预告中', color: '#a855f7' },
+  ],
   tag_groups: ['服装', '体型', '玩法', '行为', '角色', '风格', '场景', '情感'],
   status_colors: { wish: '#f59e0b', doing: '#3b82f6', done: '#22c55e' },
   status_labels: {
     default: { wish: '想看', doing: '在看', done: '看完' },
+    novel: { wish: '想读', doing: '在读', done: '读完' },
+    anime: { wish: '想看', doing: '在追', done: '追完' },
+    shortdrama: { wish: '想看', doing: '在追', done: '追完' },
+    character: { wish: '想要', doing: '在推', done: '已拥有' },
     game: { wish: '想玩', doing: '在玩', done: '通关' },
     clothing: { wish: '想收', doing: '在收', done: '已收' },
   },
@@ -90,6 +100,11 @@ export function genresOf(meta: Meta, category: string, keys: string[] | null | u
 export function workStatusOf(meta: Meta, key: WorkStatus | null) {
   if (!key) return null
   return meta.work_status.find((w) => w.key === key) ?? null
+}
+
+export function acquireOf(meta: Meta, key: AcquireStatus | null) {
+  if (!key) return null
+  return meta.acquire_status.find((a) => a.key === key) ?? null
 }
 
 /** 预计时长格式化：45 -> "45 分钟"，90 -> "1 小时 30 分钟" */

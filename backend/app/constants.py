@@ -57,6 +57,15 @@ WORK_STATUS: dict[str, dict] = {
 }
 WORK_STATUS_KEYS: list[str] = list(WORK_STATUS)
 
+# 角色获取状态（仅角色分类；抽卡游戏适用，单机/动漫角色可留空）
+ACQUIRE_STATUS: dict[str, dict] = {
+    "owned": {"label": "已获取", "color": "#22c55e"},
+    "not_owned": {"label": "未获取", "color": "#f59e0b"},
+    "skip": {"label": "不获取", "color": "#78716c"},
+    "teaser": {"label": "预告中", "color": "#a855f7"},
+}
+ACQUIRE_STATUS_KEYS: list[str] = list(ACQUIRE_STATUS)
+
 # 标签分组（标签库按组归类，如：服装/体型/玩法/行为/角色…）
 TAG_GROUPS: list[str] = ["服装", "体型", "玩法", "行为", "角色", "风格", "场景", "情感"]
 
@@ -76,9 +85,14 @@ def genre_color(label: str, index: int) -> str:
 STATUS_COLORS: dict[str, str] = {"wish": "#f59e0b", "doing": "#3b82f6", "done": "#22c55e"}
 STATUS_KEYS: list[str] = list(STATUS_COLORS)
 
-# Progress labels adapt per category: game -> 想玩/在玩/通关, clothing -> 想收/在收/已收, others -> 想看/在看/看完
+# Progress labels adapt per category: game -> 想玩/在玩/通关, clothing -> 想收/在收/已收,
+# novel -> 想读/在读/读完, anime/shortdrama -> 想看/在追/追完, character -> 想要/在推/已拥有
 STATUS_LABELS: dict[str, dict[str, str]] = {
     "default": {"wish": "想看", "doing": "在看", "done": "看完"},
+    "novel": {"wish": "想读", "doing": "在读", "done": "读完"},
+    "anime": {"wish": "想看", "doing": "在追", "done": "追完"},
+    "shortdrama": {"wish": "想看", "doing": "在追", "done": "追完"},
+    "character": {"wish": "想要", "doing": "在推", "done": "已拥有"},
     "game": {"wish": "想玩", "doing": "在玩", "done": "通关"},
     "clothing": {"wish": "想收", "doing": "在收", "done": "已收"},
 }

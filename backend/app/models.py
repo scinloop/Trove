@@ -16,6 +16,7 @@ class Item(Base):
     sub_type: Mapped[str | None] = mapped_column(String(20))       # legacy 单题材（已迁往 sub_types，保留列以便老库回滚）
     sub_types: Mapped[list | None] = mapped_column(JSON)           # 多选题材 key 列表（genres 表），空 = 未设置
     work_status: Mapped[str | None] = mapped_column(String(12))    # 作品状态：upcoming|ongoing|finished，可空
+    acquire: Mapped[str | None] = mapped_column(String(12))        # 角色获取状态：owned|not_owned|skip|teaser，仅 character 分类
     source: Mapped[str | None] = mapped_column(String(200))        # 来源作品 / 作者 / 平台
     rating: Mapped[int] = mapped_column(Integer, default=3)        # 0-5
     status: Mapped[str] = mapped_column(String(10), default="doing", index=True)  # wish|doing|done

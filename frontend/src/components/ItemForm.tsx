@@ -6,7 +6,7 @@ import { statusLabel } from '../lib/labels'
 import { IconImage } from './Icons'
 import { TagPicker } from './TagPicker'
 import { useToast } from './Toast'
-import type { Category, Item, ItemInput, Status, SubType, WorkStatus } from '../types'
+import type { AcquireStatus, Category, Item, ItemInput, Status, SubType, WorkStatus } from '../types'
 
 const STATUS_KEYS: Status[] = ['wish', 'doing', 'done']
 
@@ -28,6 +28,7 @@ export function ItemForm({ item, onClose }: Props) {
           category: item.category,
           sub_types: item.sub_types ?? [],
           work_status: item.work_status,
+          acquire: item.acquire,
           source: item.source ?? '',
           rating: item.rating,
           status: item.status,
@@ -42,6 +43,7 @@ export function ItemForm({ item, onClose }: Props) {
           category: 'anime',
           sub_types: [],
           work_status: null,
+          acquire: null,
           source: '',
           rating: 3,
           status: 'doing',
@@ -90,6 +92,7 @@ export function ItemForm({ item, onClose }: Props) {
       ...form,
       title,
       sub_types: subTypes,
+      acquire: form.category === 'character' ? form.acquire : null, // 获取状态仅角色支持
       source: form.source?.trim() || null,
       note: form.note?.trim() || null,
       emoji: form.emoji,
@@ -136,12 +139,13 @@ export function ItemForm({ item, onClose }: Props) {
                     ...f,
                     category: c.key as Category,
                     emoji: null,
-                    // 切换分类：必选题材的分类默认选第一个，其余清空
+                    // 切换分类：必选题材的分类默认选第一个，其余清空；获取状态仅角色有
                     sub_types: meta.genre_required.includes(c.key)
                       ? [((meta.genres[c.key] ?? [])[0]?.key as SubType | undefined)].filter(
                           (k): k is SubType => !!k,
                         )
                       : [],
+                    acquire: c.key === 'character' ? f.acquire : null,
                   }))
                 }
               >
@@ -224,6 +228,28 @@ export function ItemForm({ item, onClose }: Props) {
               </button>
             ))}
           </div>
+          {form.category === 'character' && (
+            <>
+              <label>获取状态（抽卡游戏适用；单机 / 动漫角色可不设置）</label>
+              <div className="seg">
+                <button
+                  className={'seg-b sm' + (!form.acquire ? ' on' : '')}
+                  onClick={() => setForm((f) => ({ ...f, acquire: null }))}
+                >
+                  未设置
+                </button>
+                {meta.acquire_status.map((a) => (
+                  <button
+                    key={a.key}
+                    className={'seg-b sm' + (form.acquire === a.key ? ' on' : '')}
+                    onClick={() => setForm((f) => ({ ...f, acquire: a.key as AcquireStatus }))}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <label>标签（按分组选择，可新建）</label>
           <TagPicker value={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
           <label>图片（服装展示 / 封面，可选）</label>

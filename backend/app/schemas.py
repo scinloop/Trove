@@ -3,7 +3,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.constants import CATEGORY_KEYS, STATUS_KEYS, TASK_KINDS, WORK_STATUS_KEYS
+from app.constants import (
+    ACQUIRE_STATUS_KEYS,
+    CATEGORY_KEYS,
+    STATUS_KEYS,
+    TASK_KINDS,
+    WORK_STATUS_KEYS,
+)
 
 
 class ItemBase(BaseModel):
@@ -11,6 +17,7 @@ class ItemBase(BaseModel):
     category: str
     sub_types: list[str] = Field(default_factory=list, max_length=20)  # 多选题材 key
     work_status: str | None = None  # 作品状态：upcoming|ongoing|finished，可空
+    acquire: str | None = None  # 角色获取状态：owned|not_owned|skip|teaser，仅 character 分类
     source: str | None = Field(default=None, max_length=200)
     rating: int = Field(default=3, ge=0, le=5)
     status: str = "doing"
@@ -29,6 +36,10 @@ class ItemBase(BaseModel):
             raise ValueError(f"unknown status: {self.status}")
         if self.work_status is not None and self.work_status not in WORK_STATUS_KEYS:
             raise ValueError(f"unknown work_status: {self.work_status}")
+        if self.acquire is not None and self.acquire not in ACQUIRE_STATUS_KEYS:
+            raise ValueError(f"unknown acquire: {self.acquire}")
+        if self.acquire is not None and self.category != "character":
+            raise ValueError("acquire 仅角色分类支持")
         self.sub_types = [s for s in dict.fromkeys(self.sub_types) if s]  # 去重保序、去空
         return self
 
@@ -42,6 +53,7 @@ class ItemUpdate(BaseModel):
     category: str | None = None
     sub_types: list[str] | None = Field(default=None, max_length=20)
     work_status: str | None = None
+    acquire: str | None = None
     source: str | None = Field(default=None, max_length=200)
     rating: int | None = Field(default=None, ge=0, le=5)
     status: str | None = None
@@ -55,6 +67,8 @@ class ItemUpdate(BaseModel):
     def _validate(self) -> "ItemUpdate":
         if self.work_status is not None and self.work_status not in WORK_STATUS_KEYS:
             raise ValueError(f"unknown work_status: {self.work_status}")
+        if self.acquire is not None and self.acquire not in ACQUIRE_STATUS_KEYS:
+            raise ValueError(f"unknown acquire: {self.acquire}")
         return self
 
 
@@ -68,6 +82,7 @@ class ItemOut(BaseModel):
     category: str
     sub_types: list[str]
     work_status: str | None
+    acquire: str | None
     source: str | None
     rating: int
     status: str

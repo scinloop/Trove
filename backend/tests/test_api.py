@@ -74,7 +74,11 @@ async def test_meta(client):
     assert len(meta["genres"]["novel"]) == 12
     assert meta["genre_required"] == ["character", "comic"]
     assert [w["key"] for w in meta["work_status"]] == ["upcoming", "ongoing", "finished"]
+    assert [a["key"] for a in meta["acquire_status"]] == ["owned", "not_owned", "skip", "teaser"]
     assert "角色" in meta["tag_groups"] and "服装" in meta["tag_groups"]
+    # 按分类适配的进度状态文案
+    assert meta["status_labels"]["novel"] == {"wish": "想读", "doing": "在读", "done": "读完"}
+    assert meta["status_labels"]["character"] == {"wish": "想要", "doing": "在推", "done": "已拥有"}
 
 
 async def test_create_and_get(client):
@@ -150,6 +154,45 @@ async def test_work_status(client):
     # 不设置 work_status = None（未设置）
     r = await client.post("/api/items", json={"title": "x", "category": "comic", "sub_types": ["jp"]})
     assert r.status_code == 201 and r.json()["work_status"] is None
+
+
+async def test_acquire_status(client):
+    # 角色可以设置获取状态（抽卡游戏）
+    r = await client.post(
+        "/api/items",
+        json={"title": "流萤", "category": "character", "sub_types": ["game"], "acquire": "owned"},
+    )
+    assert r.status_code == 201 and r.json()["acquire"] == "owned"
+
+    r = await client.post(
+        "/api/items",
+        json={"title": "新角色", "category": "character", "sub_types": ["game"], "acquire": "teaser"},
+    )
+    assert r.status_code == 201
+
+    # 不设置 = None（单机游戏角色 / 动漫角色）
+    r = await client.post("/api/items", json={"title": "五条悟", "category": "character", "sub_types": ["anime_manga"]})
+    assert r.status_code == 201 and r.json()["acquire"] is None
+
+    # 未知值拒绝
+    r = await client.post(
+        "/api/items",
+        json={"title": "x", "category": "character", "sub_types": ["game"], "acquire": "foo"},
+    )
+    assert r.status_code == 422
+
+    # 非角色分类不支持获取状态
+    r = await client.post(
+        "/api/items",
+        json={"title": "x", "category": "comic", "sub_types": ["jp"], "acquire": "owned"},
+    )
+    assert r.status_code == 422
+
+    # PATCH 修改获取状态
+    r = await client.post("/api/items", json={"title": "阿米娅", "category": "character", "sub_types": ["game"]})
+    item_id = r.json()["id"]
+    r = await client.patch(f"/api/items/{item_id}", json={"acquire": "not_owned"})
+    assert r.json()["acquire"] == "not_owned"
 
 
 async def test_list_filter_search_sort(client):
