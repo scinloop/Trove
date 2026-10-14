@@ -125,10 +125,12 @@ export function ChapterManager({ item, onClose }: Props) {
     <div className="overlay show">
       <div className="modal modal-lg">
         <div className="m-head">
-          <h2>章节管理 · {item.title}</h2>
-          <button className="m-close" onClick={onClose} aria-label="关闭">
-            ✕
-          </button>
+          <div className="m-title">
+            <h2>章节管理 · {item.title}</h2>
+            <button className="m-close" onClick={onClose} aria-label="关闭">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="chips sub">
           <button className="chip sm" onClick={() => fileRef.current?.click()} disabled={busy}>

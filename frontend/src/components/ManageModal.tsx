@@ -126,10 +126,12 @@ export function ManageModal({ onClose }: Props) {
     <div className="overlay show">
       <div className="modal modal-lg">
         <div className="m-head">
-          <h2>题材与标签管理</h2>
-          <button className="m-close" onClick={onClose} aria-label="关闭">
-            ✕
-          </button>
+          <div className="m-title">
+            <h2>题材与标签管理</h2>
+            <button className="m-close" onClick={onClose} aria-label="关闭">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="chips">
           <button className={'chip' + (tab === 'genres' ? ' on' : '')} onClick={() => setTab('genres')}>

@@ -640,21 +640,24 @@ select {
   margin-bottom: 14px;
 }
 
-.m-head {
+.m-title {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.m-head h2 {
+.m-title h2 {
   margin: 0;
   font-size: 18px;
   letter-spacing: -0.3px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 弹层头部右上角关闭按钮（遮罩不可点的表单/管理弹层专用出口） */
+/* 弹层右上角统一关闭按钮 */
 .m-close {
   flex: none;
   width: 32px;

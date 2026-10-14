@@ -129,7 +129,12 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
     <div className="overlay show">
       <div className="modal">
         <div className="m-head">
-          <h2>{item ? '编辑收藏' : '添加收藏'}</h2>
+          <div className="m-title">
+            <h2>{item ? '编辑收藏' : '添加收藏'}</h2>
+            <button className="m-close" onClick={onClose} aria-label="关闭">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="form">
           <label>分类</label>

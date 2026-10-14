@@ -69,7 +69,12 @@ export function TaskModal({ task, onClose, onEdit, onChanged }: Props) {
     >
       <div className="modal">
         <div className="m-head">
-          <h2>{task.title}</h2>
+          <div className="m-title">
+            <h2>{task.title}</h2>
+            <button className="m-close" onClick={onClose} aria-label="关闭">
+              ✕
+            </button>
+          </div>
           <div className="m-badges">
             <span className="pill">
               {kindMeta?.emoji} {kindMeta?.label}

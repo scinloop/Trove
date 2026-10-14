@@ -109,7 +109,12 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           )}
         </div>
         <div className="m-head">
-          <h2>{item.title}</h2>
+          <div className="m-title">
+            <h2>{item.title}</h2>
+            <button className="m-close" onClick={onClose} aria-label="关闭">
+              ✕
+            </button>
+          </div>
           <div className="m-badges">
             <span className="pill">
               <i style={{ background: color }} />
