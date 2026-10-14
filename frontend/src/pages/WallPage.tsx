@@ -1,22 +1,28 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { api } from '../api/client'
 import { CategoryChips } from '../components/Chips'
 import { ItemCard } from '../components/ItemCard'
 import { Pager } from '../components/Pager'
 import { StatMinis } from '../components/StatMinis'
+import { useColumns } from '../hooks/useColumns'
 import { useFilters } from '../hooks/useFilters'
 import { useMeta, useStats } from '../hooks/queries'
 import type { Item } from '../types'
 
-const PAGE_SIZE = 60
+const ROWS = 4 // 每页行数：桌面 5-6 列 × 4 行 ≈ 20-24 个/页；手机 2 列 × 4 行 = 8 个/页
 
 export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const meta = useMeta()
   const { cat, sub, q, sort, page, setPage } = useFilters()
   const stats = useStats()
+  const viewRef = useRef<HTMLDivElement>(null)
+  // 列数与 CSS auto-fill 网格保持一致 → 每页正好铺满整行，末行不缺格
+  const cols = useColumns(viewRef, { mobile: 2, min: 178, gap: 14 })
+  const PAGE_SIZE = cols * ROWS
 
   const list = useQuery({
-    queryKey: ['items', cat, sub, q, sort, page],
+    queryKey: ['items', cat, sub, q, sort, page, PAGE_SIZE],
     queryFn: () =>
       api.list({
         category: cat === 'all' ? undefined : cat,
@@ -34,11 +40,10 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const total = list.data?.total ?? 0
   const items = list.data?.items ?? []
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const curPage = Math.min(page, totalPages)
-  const viewing = curPage === page // URL 页码越界时仍按 URL 显示计数
+  const viewing = page <= totalPages // URL 页码越界时仍按 URL 显示计数
 
   return (
-    <div className="view">
+    <div className="view" ref={viewRef}>
       <StatMinis
         items={[
           { icon: '🗂️', label: '收藏总数', value: s?.total ?? 0 },
@@ -50,7 +55,7 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
       <CategoryChips meta={meta} />
       <p className="count">
         共 {total} 件收藏{q ? ` · 关键词「${q}」` : ''}
-        {totalPages > 1 && ` · 第 ${viewing ? curPage : page}/${totalPages} 页`}
+        {totalPages > 1 && ` · 第 ${viewing ? page : totalPages}/${totalPages} 页`}
       </p>
       {list.isError ? (
         <p className="count">加载失败：{list.error.message}</p>
@@ -66,7 +71,7 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
         </div>
       ) : (
         <>
-          <div className="grid" key={`${cat}-${sub}-${q}-${sort}-${curPage}`}>
+          <div className="grid" key={`${cat}-${sub}-${q}-${sort}-${page}-${PAGE_SIZE}`}>
             {items.map((it, i) => (
               <ItemCard key={it.id} item={it} index={i} onOpen={onOpen} />
             ))}

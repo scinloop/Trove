@@ -1,21 +1,26 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Pager } from '../components/Pager'
+import { useColumns } from '../hooks/useColumns'
 import { useMeta } from '../hooks/queries'
 import { faviconUrl, hostOf } from '../lib/labels'
 import type { Item } from '../types'
 
-const PAGE_SIZE = 60
+const ROWS = 6 // 每页行数：手机 1 列 × 6 = 6 个/页；桌面 4-5 列 × 6 ≈ 24-30 个/页
 
 /** 网站栏：网址收藏专用页（favicon 自动解析 + 自定义分类筛选） */
 export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; onManage: () => void }) {
   const meta = useMeta()
   const [sub, setSub] = useState('all')
   const [page, setPage] = useState(1)
+  const viewRef = useRef<HTMLDivElement>(null)
+  // 列数与 CSS auto-fill 网格一致 → 每页铺满整行
+  const cols = useColumns(viewRef, { mobile: 1, min: 240, gap: 12 })
+  const PAGE_SIZE = cols * ROWS
 
   const list = useQuery({
-    queryKey: ['items', 'website', sub, page],
+    queryKey: ['items', 'website', sub, page, PAGE_SIZE],
     queryFn: () =>
       api.list({
         category: 'website',
@@ -32,7 +37,7 @@ export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; on
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="view">
+    <div className="view" ref={viewRef}>
       <h2 className="v-title">🌐 网站栏</h2>
       <div className="chips sub wrap">
         <button className={'chip' + (sub === 'all' ? ' on' : '')} onClick={() => { setSub('all'); setPage(1) }}>
