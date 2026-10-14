@@ -97,7 +97,7 @@ export default function App() {
             </Routes>
           </div>
         </div>
-        <BottomBar onAdd={onAdd} onMe={() => setMeOpen(true)} />
+        <BottomBar onAdd={onAdd} />
         {detail && (
           <ItemModal
             item={detail}
