@@ -5,9 +5,10 @@ interface Props {
   theme: 'light' | 'dark'
   onToggleTheme: () => void
   onAdd: () => void
+  onMe: () => void
 }
 
-export function Topbar({ theme, onToggleTheme, onAdd }: Props) {
+export function Topbar({ theme, onToggleTheme, onAdd, onMe }: Props) {
   const { q, setQ } = useFilters()
   const [text, setText] = useState(q)
   const timer = useRef<number | undefined>(undefined)
@@ -38,6 +39,9 @@ export function Topbar({ theme, onToggleTheme, onAdd }: Props) {
       </div>
       <button className="icon-btn" onClick={onToggleTheme} title="深色 / 浅色">
         {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
+      <button className="icon-btn" onClick={onMe} title="我的（题材与标签管理）">
+        👤
       </button>
       <button className="add-btn" onClick={onAdd}>
         ＋ 添加收藏

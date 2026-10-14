@@ -58,7 +58,12 @@ export default function App() {
         <div className="app-body">
           <Sidebar />
           <div className="main">
-            <Topbar theme={theme} onToggleTheme={toggleTheme} onAdd={onAdd} />
+            <Topbar
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onAdd={onAdd}
+              onMe={() => setMeOpen(true)}
+            />
             <Routes>
               <Route path="/" element={<WallPage onOpen={setDetail} />} />
               <Route path="/tasks" element={<TasksPage onOpen={setTaskDetail} />} />
