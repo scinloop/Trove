@@ -9,6 +9,62 @@ interface Props {
   initialCat?: string // 打开时预选的分类（如从网站栏进入 → website）
 }
 
+/** 常用分类图标（点选） */
+const CAT_EMOJIS = [
+  '📚', '📖', '📺', '🎬', '🎞️', '🎴', '🎮', '🌐', '🎧', '🎵',
+  '👗', '👟', '📱', '💻', '🎨', '🍳', '📷', '🏀', '🚗', '✈️',
+  '🏠', '🐾', '🌿', '💡', '🏃', '🧸', '💍', '🎁',
+]
+
+/** 常用分类配色（点选） */
+const CAT_COLORS = [
+  '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981',
+  '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6',
+  '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#78716c', '#71717a',
+]
+
+/** emoji / 颜色点选器 */
+function EmojiColorPicker({
+  emoji,
+  color,
+  onEmoji,
+  onColor,
+}: {
+  emoji: string
+  color: string
+  onEmoji: (v: string) => void
+  onColor: (v: string) => void
+}) {
+  return (
+    <div className="cat-pick">
+      <div className="cat-emoji-grid">
+        {CAT_EMOJIS.map((e) => (
+          <button
+            key={e}
+            className={'cat-emoji' + (emoji === e ? ' on' : '')}
+            onClick={() => onEmoji(e)}
+            type="button"
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+      <div className="cat-color-row">
+        {CAT_COLORS.map((c) => (
+          <button
+            key={c}
+            className={'cat-color' + (color.toLowerCase() === c ? ' on' : '')}
+            style={{ background: c }}
+            onClick={() => onColor(c)}
+            type="button"
+            aria-label={c}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** 题材库 + 标签库 + 主分类 + 标签分组 管理弹层（入口：我的 → 题材与标签管理 / 网站栏 → 管理分类） */
 export function ManageModal({ onClose, initialCat }: Props) {
   const meta = useMeta()
@@ -248,18 +304,11 @@ export function ManageModal({ onClose, initialCat }: Props) {
             <p className="none">左侧收藏墙的主分类，可以自由增删改和排序；删除前需清空该分类下的收藏与题材。</p>
             <div className="manage-list">
               {catsList.map((c, i) => (
-                <div className="manage-row" key={c.key}>
+                <div className="manage-row cat-row" key={c.key}>
                   <i className="tdot" style={{ background: c.color }} />
                   {cEdit === c.key ? (
                     <>
-                      <input
-                        className="mi-edit"
-                        style={{ width: '5em', textAlign: 'center' }}
-                        value={cEmoji}
-                        onChange={(e) => setCEmoji(e.target.value)}
-                        placeholder="emoji"
-                        autoFocus
-                      />
+                      <span className="cat-cur">{cEmoji} {cLabel || '名称'}</span>
                       <input
                         className="mi-edit"
                         value={cLabel}
@@ -268,14 +317,14 @@ export function ManageModal({ onClose, initialCat }: Props) {
                           if (e.key === 'Enter') catUpdate.mutate({ key: c.key })
                           if (e.key === 'Escape') setCEdit(null)
                         }}
-                        placeholder="名称"
+                        placeholder="分类名称"
+                        autoFocus
                       />
-                      <input
-                        className="mi-edit"
-                        style={{ width: '6em' }}
-                        value={cColor}
-                        onChange={(e) => setCColor(e.target.value)}
-                        placeholder="#颜色"
+                      <EmojiColorPicker
+                        emoji={cEmoji}
+                        color={cColor}
+                        onEmoji={setCEmoji}
+                        onColor={setCColor}
                       />
                     </>
                   ) : (
@@ -579,30 +628,16 @@ export function ManageModal({ onClose, initialCat }: Props) {
 
         {tab === 'cats' ? (
           <div className="form tight">
-            <label>添加主分类</label>
+            <label>添加主分类（图标与颜色直接点选）</label>
             <div className="add-row">
-              <input
-                className="mi-edit"
-                style={{ width: '4.5em', textAlign: 'center' }}
-                value={newCat.emoji}
-                onChange={(e) => setNewCat((f) => ({ ...f, emoji: e.target.value }))}
-                placeholder="emoji"
-              />
               <input
                 value={newCat.label}
                 onChange={(e) => setNewCat((f) => ({ ...f, label: e.target.value }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newCat.label.trim()) catCreate.mutate()
                 }}
-                placeholder="名称，如：播客"
+                placeholder="分类名称，如：播客"
                 autoFocus
-              />
-              <input
-                className="mi-edit"
-                style={{ width: '6em' }}
-                value={newCat.color}
-                onChange={(e) => setNewCat((f) => ({ ...f, color: e.target.value }))}
-                placeholder="#颜色"
               />
               <button
                 className="btn primary sm"
@@ -612,6 +647,12 @@ export function ManageModal({ onClose, initialCat }: Props) {
                 添加
               </button>
             </div>
+            <EmojiColorPicker
+              emoji={newCat.emoji || '🎴'}
+              color={newCat.color}
+              onEmoji={(v) => setNewCat((f) => ({ ...f, emoji: v }))}
+              onColor={(v) => setNewCat((f) => ({ ...f, color: v }))}
+            />
           </div>
         ) : (
           <div className="form tight">

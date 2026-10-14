@@ -2133,6 +2133,84 @@ select {
   margin-left: 6px;
 }
 
+/* 主分类 emoji / 颜色点选器 */
+.cat-row {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.cat-cur {
+  font-size: 12.5px;
+  color: var(--muted);
+  flex: none;
+  min-width: 5em;
+  white-space: nowrap;
+}
+
+.cat-pick {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel2);
+  border-radius: 12px;
+}
+
+.cat-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 4px;
+}
+
+.cat-emoji {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: none;
+  font-size: 17px;
+  display: grid;
+  place-items: center;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.cat-emoji:hover {
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.cat-emoji.on {
+  background: var(--panel);
+  border-color: var(--accent);
+}
+
+.cat-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cat-color {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition:
+    transform 0.12s,
+    border-color 0.12s;
+}
+
+.cat-color:hover {
+  transform: scale(1.15);
+}
+
+.cat-color.on {
+  border-color: var(--text);
+  transform: scale(1.15);
+}
+
 /* ---------- 网站栏 / favicon ---------- */
 
 .site-grid {
