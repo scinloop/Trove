@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { Pager } from '../components/Pager'
@@ -15,14 +15,21 @@ export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; on
   const [page, setPage] = useState(1)
 
   const list = useQuery({
-    queryKey: ['items', 'website', sub],
-    queryFn: () => api.list({ category: 'website', sub: sub === 'all' ? undefined : sub }),
+    queryKey: ['items', 'website', sub, page],
+    queryFn: () =>
+      api.list({
+        category: 'website',
+        sub: sub === 'all' ? undefined : sub,
+        page,
+        page_size: PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
+    gcTime: 60_000,
   })
-  const sites = list.data ?? []
+  const sites = list.data?.items ?? []
+  const total = list.data?.total ?? 0
   const genres = meta.genres.website ?? []
-  const totalPages = Math.max(1, Math.ceil(sites.length / PAGE_SIZE))
-  const curPage = Math.min(page, totalPages)
-  const shown = sites.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <div className="view">
@@ -41,7 +48,7 @@ export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; on
         </button>
       </div>
       <p className="count">
-        共 {sites.length} 个网站{totalPages > 1 && ` · 第 ${curPage}/${totalPages} 页`}
+        共 {total} 个网站{totalPages > 1 && ` · 第 ${page}/${totalPages} 页`}
       </p>
       {list.isError ? (
         <p className="count">加载失败：{list.error.message}</p>
@@ -57,12 +64,12 @@ export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; on
         </div>
       ) : (
         <>
-          <div className="site-grid">
-            {shown.map((s) => (
+          <div className="site-grid" key={`${sub}-${page}`}>
+            {sites.map((s) => (
               <SiteCard key={s.id} item={s} onOpen={onOpen} />
             ))}
           </div>
-          <Pager page={curPage} totalPages={totalPages} onChange={setPage} />
+          <Pager page={page} totalPages={totalPages} onChange={setPage} />
         </>
       )}
     </div>

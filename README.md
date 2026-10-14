@@ -67,7 +67,7 @@ cd ../backend
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/meta` | 分类/题材/作品状态/标签分组/状态/任务 的标签、颜色、顺序（含 `genre_required`） |
-| GET | `/api/items` | 列表：`category` `sub` `q` `sort=recent\|rating\|title` `favorite` |
+| GET | `/api/items` | 分页列表：`category` `sub` `q` `sort` `favorite` `page` `page_size`（≤200），返回 `{total, items}` |
 | POST | `/api/items` | 新增（201，题材按分类校验；website 需带 `url`） |
 | GET | `/api/favicon?host=` | 解析并缓存网站图标（`refresh=1` 强制重新抓取） |
 | GET/PATCH/DELETE | `/api/items/{id}` | 详情 / 部分更新 / 删除（204） |

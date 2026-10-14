@@ -253,7 +253,7 @@ async def test_categories_manage(client):
     assert r.status_code == 409
 
     # 清掉条目与题材后可删除
-    items = (await client.get(f"/api/items?category={cat['key']}")).json()
+    items = (await client.get(f"/api/items?category={cat['key']}")).json()["items"]
     for it in items:
         await client.delete(f"/api/items/{it['id']}")
     genres = [g for g in (await client.get("/api/genres")).json() if g["category"] == cat["key"]]
@@ -304,25 +304,37 @@ async def test_list_filter_search_sort(client):
     await client.post("/api/items", json={"title": "咒术回战", "category": "comic", "sub_types": ["kr"], "rating": 4})
 
     r = await client.get("/api/items", params={"category": "comic"})
-    assert [i["title"] for i in r.json()] == ["咒术回战", "海贼王"]  # recent sort: newest first
+    body = r.json()
+    assert [i["title"] for i in body["items"]] == ["咒术回战", "海贼王"]  # recent sort: newest first
+    assert body["total"] == 2
 
     r = await client.get("/api/items", params={"q": "海贼"})
-    assert [i["title"] for i in r.json()] == ["海贼王"]
+    assert [i["title"] for i in r.json()["items"]] == ["海贼王"]
 
     r = await client.get("/api/items", params={"q": "热血"})  # tag search
-    assert [i["title"] for i in r.json()] == ["海贼王"]
+    assert [i["title"] for i in r.json()["items"]] == ["海贼王"]
 
     r = await client.get("/api/items", params={"sort": "rating"})
-    assert r.json()[0]["rating"] == 5
+    assert r.json()["items"][0]["rating"] == 5
 
     r = await client.get("/api/items", params={"category": "character", "sub": "game"})
-    assert [i["title"] for i in r.json()] == ["雷电将军"]
+    assert [i["title"] for i in r.json()["items"]] == ["雷电将军"]
 
     r = await client.get("/api/items", params={"category": "comic", "sub": "kr"})
-    assert [i["title"] for i in r.json()] == ["咒术回战"]
+    assert [i["title"] for i in r.json()["items"]] == ["咒术回战"]
 
     r = await client.get("/api/items", params={"favorite": True})
-    assert len(r.json()) == 1
+    body = r.json()
+    assert len(body["items"]) == 1 and body["total"] == 1
+
+    # 分页：page_size=1 翻页
+    r = await client.get("/api/items", params={"page_size": 1, "page": 1})
+    body = r.json()
+    assert body["total"] == 3 and len(body["items"]) == 1
+    r = await client.get("/api/items", params={"page_size": 1, "page": 3})
+    assert len(r.json()["items"]) == 1
+    r = await client.get("/api/items", params={"page_size": 1, "page": 4})
+    assert len(r.json()["items"]) == 0
 
 
 async def test_patch(client):

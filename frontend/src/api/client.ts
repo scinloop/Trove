@@ -36,13 +36,20 @@ export interface ListParams {
   q?: string
   sort?: string
   favorite?: boolean
+  page?: number
+  page_size?: number
+}
+
+export interface ListResult {
+  total: number
+  items: Item[]
 }
 
 export const api = {
   meta: () => http<Meta>('/meta'),
   stats: () => http<Stats>('/stats'),
 
-  list: (p: ListParams = {}) => http<Item[]>(`/items${toQuery(p)}`),
+  list: (p: ListParams = {}) => http<ListResult>(`/items${toQuery(p)}`),
   getItem: (id: number) => http<Item>(`/items/${id}`),
   create: (data: ItemInput) => http<Item>('/items', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: Partial<ItemInput>) =>

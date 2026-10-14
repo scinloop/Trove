@@ -1,5 +1,6 @@
 """Item CRUD endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
@@ -9,17 +10,28 @@ from app.schemas import ItemCreate, ItemOut, ItemUpdate
 router = APIRouter(tags=["items"])
 
 
-@router.get("/items", response_model=list[ItemOut])
+class ItemListOut(BaseModel):
+    total: int
+    items: list[ItemOut]
+
+
+@router.get("/items", response_model=ItemListOut)
 async def list_items(
     category: str | None = None,
     sub: str | None = None,
     q: str | None = None,
     sort: str = Query(default="recent", pattern="^(recent|rating|title)$"),
     favorite: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=60, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
-) -> list[ItemOut]:
-    items = await crud.list_items(session, category=category, sub=sub, q=q, sort=sort, favorite=favorite)
-    return [ItemOut.model_validate(i) for i in items]
+) -> ItemListOut:
+    """分页列表：page/page_size，返回 {total, items}；page_size=200 为上限。"""
+    total, items = await crud.list_items(
+        session, category=category, sub=sub, q=q, sort=sort, favorite=favorite,
+        limit=page_size, offset=(page - 1) * page_size,
+    )
+    return ItemListOut(total=total, items=[ItemOut.model_validate(i) for i in items])
 
 
 @router.post("/items", response_model=ItemOut, status_code=status.HTTP_201_CREATED)

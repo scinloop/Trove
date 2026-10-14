@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { CategoryChips } from '../components/Chips'
 import { ItemCard } from '../components/ItemCard'
@@ -16,21 +16,26 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
   const stats = useStats()
 
   const list = useQuery({
-    queryKey: ['items', cat, sub, q, sort],
+    queryKey: ['items', cat, sub, q, sort, page],
     queryFn: () =>
       api.list({
         category: cat === 'all' ? undefined : cat,
         sub: sub === 'all' ? undefined : sub,
         q: q || undefined,
         sort,
+        page,
+        page_size: PAGE_SIZE,
       }),
+    placeholderData: keepPreviousData, // 筛选/翻页时保留旧列表，不闪「加载中」
+    gcTime: 60_000, // 搜索词组合多，缓存别囤太久
   })
 
   const s = stats.data
-  const items = list.data ?? []
-  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const total = list.data?.total ?? 0
+  const items = list.data?.items ?? []
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const curPage = Math.min(page, totalPages)
-  const shown = items.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE)
+  const viewing = curPage === page // URL 页码越界时仍按 URL 显示计数
 
   return (
     <div className="view">
@@ -44,8 +49,8 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
       />
       <CategoryChips meta={meta} />
       <p className="count">
-        共 {items.length} 件收藏{q ? ` · 关键词「${q}」` : ''}
-        {totalPages > 1 && ` · 第 ${curPage}/${totalPages} 页`}
+        共 {total} 件收藏{q ? ` · 关键词「${q}」` : ''}
+        {totalPages > 1 && ` · 第 ${viewing ? curPage : page}/${totalPages} 页`}
       </p>
       {list.isError ? (
         <p className="count">加载失败：{list.error.message}</p>
@@ -61,12 +66,12 @@ export function WallPage({ onOpen }: { onOpen: (it: Item) => void }) {
         </div>
       ) : (
         <>
-          <div className="grid">
-            {shown.map((it, i) => (
+          <div className="grid" key={`${cat}-${sub}-${q}-${sort}-${curPage}`}>
+            {items.map((it, i) => (
               <ItemCard key={it.id} item={it} index={i} onOpen={onOpen} />
             ))}
           </div>
-          <Pager page={curPage} totalPages={totalPages} onChange={setPage} />
+          <Pager page={page} totalPages={totalPages} onChange={setPage} />
         </>
       )}
     </div>

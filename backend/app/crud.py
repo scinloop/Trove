@@ -28,7 +28,10 @@ async def list_items(
     q: str | None = None,
     sort: str = "recent",
     favorite: bool | None = None,
-) -> list[Item]:
+    limit: int | None = None,
+    offset: int = 0,
+) -> tuple[int, list[Item]]:
+    """返回 (总数, 当前页条目)；limit 为 None 时全量（兼容内部调用）。"""
     stmt = select(Item)
     if category:
         stmt = stmt.where(Item.category == category)
@@ -53,8 +56,11 @@ async def list_items(
         stmt = stmt.order_by(Item.title, Item.id)
     else:  # recent
         stmt = stmt.order_by(Item.created_at.desc(), Item.id.desc())
+    total = (await session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    if limit is not None:
+        stmt = stmt.limit(limit).offset(offset)
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return total, list(result.scalars().all())
 
 
 async def get_item(session: AsyncSession, item_id: int) -> Item | None:

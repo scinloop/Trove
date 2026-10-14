@@ -20,7 +20,8 @@ export function useFilters() {
 
   const apply = (next: URLSearchParams) => {
     const s = next.toString()
-    navigate(s ? `/?${s}` : '/')
+    // replace：筛选/搜索/翻页不污染浏览器历史（返回键不会一页页往回跳）
+    navigate(s ? `/?${s}` : '/', { replace: true })
   }
 
   const setCat = (value: CatFilter) => {
