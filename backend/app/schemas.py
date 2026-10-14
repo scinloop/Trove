@@ -18,6 +18,7 @@ class ItemBase(BaseModel):
     sub_types: list[str] = Field(default_factory=list, max_length=20)  # 多选题材 key
     work_status: str | None = None  # 作品状态：upcoming|ongoing|finished，可空
     acquire: str | None = None  # 角色获取状态：owned|not_owned|skip|teaser，仅 character 分类
+    url: str | None = Field(default=None, max_length=500)  # 网址，仅 website 分类
     source: str | None = Field(default=None, max_length=200)
     rating: int = Field(default=3, ge=0, le=5)
     status: str = "doing"
@@ -40,6 +41,18 @@ class ItemBase(BaseModel):
             raise ValueError(f"unknown acquire: {self.acquire}")
         if self.acquire is not None and self.category != "character":
             raise ValueError("acquire 仅角色分类支持")
+        # 网址：website 必填并自动补全协议；其他分类一律清空
+        if self.url:
+            url = self.url.strip()
+            if not url.startswith(("http://", "https://")):
+                url = "https://" + url
+            self.url = url
+        else:
+            self.url = None
+        if self.category == "website" and not self.url:
+            raise ValueError("网站分类需要填写网址")
+        if self.category != "website":
+            self.url = None
         self.sub_types = [s for s in dict.fromkeys(self.sub_types) if s]  # 去重保序、去空
         return self
 
@@ -54,6 +67,7 @@ class ItemUpdate(BaseModel):
     sub_types: list[str] | None = Field(default=None, max_length=20)
     work_status: str | None = None
     acquire: str | None = None
+    url: str | None = Field(default=None, max_length=500)
     source: str | None = Field(default=None, max_length=200)
     rating: int | None = Field(default=None, ge=0, le=5)
     status: str | None = None
@@ -83,6 +97,7 @@ class ItemOut(BaseModel):
     sub_types: list[str]
     work_status: str | None
     acquire: str | None
+    url: str | None
     source: str | None
     rating: int
     status: str

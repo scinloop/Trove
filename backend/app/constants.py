@@ -11,6 +11,7 @@ CATEGORIES: list[dict] = [
     {"key": "video", "label": "视频", "emoji": "🎞️", "color": "#0ea5e9", "note": None},
     {"key": "game", "label": "游戏", "emoji": "🎮", "color": "#6366f1", "note": None},
     {"key": "movie", "label": "电影", "emoji": "🎬", "color": "#f43f5e", "note": None},
+    {"key": "website", "label": "网站", "emoji": "🌐", "color": "#2563eb", "note": "网址收藏"},
     {"key": "clothing", "label": "服装", "emoji": "👗", "color": "#f59e0b", "note": None},
     {"key": "shortdrama", "label": "短剧", "emoji": "📱", "color": "#10b981", "note": None},
 ]
@@ -43,6 +44,16 @@ GENRE_SEEDS: dict[str, list[tuple[str, str, str | None]]] = {
         ("jp", "日漫", "#ef4444"),
         ("kr", "韩漫", "#3b82f6"),
         ("other", "其他", "#78716c"),
+    ],
+    "website": [
+        ("tool", "工具", "#0ea5e9"),
+        ("dev", "开发", "#6366f1"),
+        ("design", "设计", "#ec4899"),
+        ("learn", "学习", "#14b8a6"),
+        ("news", "资讯", "#f59e0b"),
+        ("ent", "娱乐", "#a855f7"),
+        ("social", "社区", "#f43f5e"),
+        ("shop", "购物", "#10b981"),
     ],
 }
 
@@ -94,6 +105,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
     "shortdrama": {"wish": "想看", "doing": "在追", "done": "追完"},
     "character": {"wish": "想要", "doing": "在推", "done": "已拥有"},
     "game": {"wish": "想玩", "doing": "在玩", "done": "通关"},
+    "website": {"wish": "想存", "doing": "在用", "done": "已存"},
     "clothing": {"wish": "想收", "doing": "在收", "done": "已收"},
 }
 

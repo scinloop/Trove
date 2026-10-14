@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMeta } from '../hooks/queries'
 import { useToggleFavorite } from '../hooks/useToggleFavorite'
-import { catOf, acquireOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
+import { catOf, acquireOf, faviconUrl, genresOf, statusLabel, workStatusOf } from '../lib/labels'
 import type { Item } from '../types'
 
 interface Props {
@@ -14,6 +14,7 @@ export function ItemCard({ item, index, onOpen }: Props) {
   const meta = useMeta()
   const fav = useToggleFavorite()
   const [pop, setPop] = useState(false)
+  const [favErr, setFavErr] = useState(false)
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
@@ -21,6 +22,7 @@ export function ItemCard({ item, index, onOpen }: Props) {
   const extraGenres = (item.sub_types?.length ?? 0) - subMetas.length
   const ws = workStatusOf(meta, item.work_status)
   const ac = item.category === 'character' ? acquireOf(meta, item.acquire) : null
+  const favSrc = item.category === 'website' ? faviconUrl(item.url) : null
 
   return (
     <article
@@ -31,6 +33,14 @@ export function ItemCard({ item, index, onOpen }: Props) {
       <div className="cover" style={{ background: `${color}14` }}>
         {item.image_url ? (
           <img className="cover-img" src={item.image_url} alt={item.title} loading="lazy" />
+        ) : favSrc && !favErr ? (
+          <img
+            className="cover-fav"
+            src={favSrc}
+            alt={item.title}
+            loading="lazy"
+            onError={() => setFavErr(true)}
+          />
         ) : (
           <span className="emoji">{item.emoji ?? cat?.emoji ?? '🎴'}</span>
         )}

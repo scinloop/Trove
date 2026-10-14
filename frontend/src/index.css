@@ -2072,3 +2072,135 @@ select {
   border-radius: 999px;
   letter-spacing: 0.04em;
 }
+
+/* ---------- 网站栏 / favicon ---------- */
+
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.site-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.site-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.site-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+}
+
+.site-ico img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.site-ico span {
+  font-size: 18px;
+}
+
+.site-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.site-info b {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-info i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-go {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.site-go:hover {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 收藏墙卡片 / 详情弹层里的 favicon 展示 */
+.cover-fav {
+  width: 52%;
+  height: 52%;
+  object-fit: contain;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px;
+}
+
+.m-cover-fav {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px;
+}
+
+.m-url a {
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.m-url a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+  .site-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { IconMe, IconStats, IconTasks, IconWall } from './Icons'
+import { IconGlobe, IconMe, IconStats, IconTasks, IconWall } from './Icons'
 
 interface Props {
   onAdd: () => void
@@ -18,6 +18,11 @@ export function BottomBar({ onAdd, onMe }: Props) {
         任务
       </NavLink>
       <div className="fab-space" />
+      <div className="fab-space" />
+      <NavLink to="/sites" className={({ isActive }) => 'bnav' + (isActive ? ' on' : '')}>
+        <IconGlobe size={20} />
+        网站
+      </NavLink>
       <NavLink to="/stats" className={({ isActive }) => 'bnav' + (isActive ? ' on' : '')}>
         <IconStats size={20} />
         统计

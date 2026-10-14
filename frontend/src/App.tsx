@@ -12,6 +12,7 @@ import { TaskModal } from './components/TaskModal'
 import { ToastProvider } from './components/Toast'
 import { Topbar } from './components/Topbar'
 import { ReaderPage } from './pages/ReaderPage'
+import { SitesPage } from './pages/SitesPage'
 import { StatsPage } from './pages/StatsPage'
 import { TasksPage } from './pages/TasksPage'
 import { WallPage } from './pages/WallPage'
@@ -66,6 +67,7 @@ export default function App() {
             />
             <Routes>
               <Route path="/" element={<WallPage onOpen={setDetail} />} />
+              <Route path="/sites" element={<SitesPage onOpen={setDetail} />} />
               <Route path="/tasks" element={<TasksPage onOpen={setTaskDetail} />} />
               <Route path="/stats" element={<StatsPage onOpen={setDetail} />} />
               <Route path="/read/:id" element={<ReaderPage />} />
@@ -90,7 +92,11 @@ export default function App() {
           />
         )}
         {formItem !== undefined && (
-          <ItemForm item={formItem} onClose={() => setFormItem(undefined)} />
+          <ItemForm
+            item={formItem}
+            onClose={() => setFormItem(undefined)}
+            presetCategory={location.pathname.startsWith('/sites') ? 'website' : undefined}
+          />
         )}
         {taskDetail && (
           <TaskModal

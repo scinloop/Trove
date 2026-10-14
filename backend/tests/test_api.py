@@ -66,7 +66,7 @@ async def test_meta(client):
     assert r.status_code == 200
     meta = r.json()
     assert [c["key"] for c in meta["categories"]] == [
-        "comic", "novel", "anime", "character", "video", "game", "movie", "clothing", "shortdrama",
+        "comic", "novel", "anime", "character", "video", "game", "movie", "website", "clothing", "shortdrama",
     ]
     assert meta["status_labels"]["game"]["done"] == "通关"
     assert meta["status_labels"]["clothing"]["done"] == "已收"
@@ -193,6 +193,33 @@ async def test_acquire_status(client):
     item_id = r.json()["id"]
     r = await client.patch(f"/api/items/{item_id}", json={"acquire": "not_owned"})
     assert r.json()["acquire"] == "not_owned"
+
+
+async def test_website_items(client):
+    # 网站条目：url 自动补全协议，题材可留空（未设置状态）
+    r = await client.post("/api/items", json={"title": "GitHub", "category": "website", "url": "github.com"})
+    assert r.status_code == 201
+    body = r.json()
+    assert body["url"] == "https://github.com"
+    assert body["sub_types"] == []
+
+    # 网站分类必须带网址
+    r = await client.post("/api/items", json={"title": "x", "category": "website"})
+    assert r.status_code == 422
+
+    # 非网站分类的 url 会被清空
+    r = await client.post("/api/items", json={"title": "x", "category": "novel", "url": "https://x.com"})
+    assert r.status_code == 201 and r.json()["url"] is None
+
+    # PATCH 换网址
+    r = await client.patch(f"/api/items/{body['id']}", json={"url": "http://example.com/path?q=1"})
+    assert r.json()["url"] == "http://example.com/path?q=1"
+
+    # meta 里有网站分类与其题材种子
+    meta = (await client.get("/api/meta")).json()
+    assert any(c["key"] == "website" for c in meta["categories"])
+    assert any(g["key"] == "tool" for g in meta["genres"]["website"])
+    assert meta["status_labels"]["website"] == {"wish": "想存", "doing": "在用", "done": "已存"}
 
 
 async def test_list_filter_search_sort(client):

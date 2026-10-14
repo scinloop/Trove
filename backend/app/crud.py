@@ -114,12 +114,13 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
         subs = []
     merged["sub_types"] = subs
     try:
-        ItemBase(**merged)  # category/status/work_status 校验
+        merged_item = ItemBase(**merged)  # category/status/work_status/acquire/url 校验与规范化
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     for field, value in changes.items():
         setattr(item, field, value)
     item.sub_types = subs
+    item.url = merged_item.url  # 应用 url 规范化（补全协议 / 非网站分类清空）
     if not item.emoji:
         item.emoji = CATEGORY_EMOJI.get(item.category)
     await session.commit()

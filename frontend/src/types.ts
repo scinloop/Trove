@@ -6,6 +6,7 @@ export type Category =
   | 'video'
   | 'game'
   | 'movie'
+  | 'website'
   | 'clothing'
   | 'shortdrama'
 export type SubType = string // genres 表里的 key（题材库可维护，不再收窄为固定联合）
@@ -23,6 +24,7 @@ export interface Item {
   sub_types: SubType[] // 多选题材 key（genres 表）
   work_status: WorkStatus | null // 作品状态：预告/更新中/已完结，null = 未设置
   acquire: AcquireStatus | null // 角色获取状态：已获取/未获取/不获取/预告中，仅 character 分类
+  url: string | null // 网址，仅 website 分类
   source: string | null
   rating: number
   status: Status
@@ -147,6 +149,7 @@ export interface ItemInput {
   sub_types: SubType[]
   work_status: WorkStatus | null
   acquire: AcquireStatus | null
+  url: string | null
   source: string | null
   rating: number
   status: Status

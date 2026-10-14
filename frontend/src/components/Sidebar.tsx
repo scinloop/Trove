@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useFilters } from '../hooks/useFilters'
 import { useMeta, useStats } from '../hooks/queries'
-import { IconStats, IconTasks, IconWall, LogoMark } from './Icons'
+import { IconGlobe, IconStats, IconTasks, IconWall, LogoMark } from './Icons'
 import type { Category } from '../types'
 
 export function Sidebar() {
@@ -25,6 +25,9 @@ export function Sidebar() {
       <nav className="side-nav">
         <NavLink to="/" end className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
           <IconWall size={16} />收藏墙
+        </NavLink>
+        <NavLink to="/sites" className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
+          <IconGlobe size={16} />网站栏
         </NavLink>
         <NavLink to="/tasks" className={({ isActive }) => 'snav' + (isActive ? ' on' : '')}>
           <IconTasks size={16} />任务

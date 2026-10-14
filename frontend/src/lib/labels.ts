@@ -10,6 +10,7 @@ export const FALLBACK_META: Meta = {
     { key: 'video', label: '视频', emoji: '🎞️', color: '#0ea5e9', note: null },
     { key: 'game', label: '游戏', emoji: '🎮', color: '#6366f1', note: null },
     { key: 'movie', label: '电影', emoji: '🎬', color: '#f43f5e', note: null },
+    { key: 'website', label: '网站', emoji: '🌐', color: '#2563eb', note: '网址收藏' },
     { key: 'clothing', label: '服装', emoji: '👗', color: '#f59e0b', note: null },
     { key: 'shortdrama', label: '短剧', emoji: '📱', color: '#10b981', note: null },
   ],
@@ -37,6 +38,16 @@ export const FALLBACK_META: Meta = {
       { key: 'kr', label: '韩漫', color: '#3b82f6' },
       { key: 'other', label: '其他', color: '#78716c' },
     ],
+    website: [
+      { key: 'tool', label: '工具', color: '#0ea5e9' },
+      { key: 'dev', label: '开发', color: '#6366f1' },
+      { key: 'design', label: '设计', color: '#ec4899' },
+      { key: 'learn', label: '学习', color: '#14b8a6' },
+      { key: 'news', label: '资讯', color: '#f59e0b' },
+      { key: 'ent', label: '娱乐', color: '#a855f7' },
+      { key: 'social', label: '社区', color: '#f43f5e' },
+      { key: 'shop', label: '购物', color: '#10b981' },
+    ],
   },
   genre_required: ['character', 'comic'],
   work_status: [
@@ -59,6 +70,7 @@ export const FALLBACK_META: Meta = {
     shortdrama: { wish: '想看', doing: '在追', done: '追完' },
     character: { wish: '想要', doing: '在推', done: '已拥有' },
     game: { wish: '想玩', doing: '在玩', done: '通关' },
+    website: { wish: '想存', doing: '在用', done: '已存' },
     clothing: { wish: '想收', doing: '在收', done: '已收' },
   },
   task_kinds: ['todo', 'goal'],
@@ -105,6 +117,23 @@ export function workStatusOf(meta: Meta, key: WorkStatus | null) {
 export function acquireOf(meta: Meta, key: AcquireStatus | null) {
   if (!key) return null
   return meta.acquire_status.find((a) => a.key === key) ?? null
+}
+
+/** 网址 → 站点域名（非法 URL 返回 null） */
+export function hostOf(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    return new URL(url).host
+  } catch {
+    return null
+  }
+}
+
+/** 网址 → 后端 favicon 代理地址（自动解析并缓存站点图标） */
+export function faviconUrl(url: string | null | undefined, refresh = false): string | null {
+  const host = hostOf(url)
+  if (!host) return null
+  return `/api/favicon?host=${encodeURIComponent(host)}${refresh ? '&refresh=1' : ''}`
 }
 
 /** 预计时长格式化：45 -> "45 分钟"，90 -> "1 小时 30 分钟" */

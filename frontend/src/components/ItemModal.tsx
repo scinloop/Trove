@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
-import { catOf, fmtWords, acquireOf, genresOf, statusLabel, workStatusOf } from '../lib/labels'
+import { catOf, fmtWords, acquireOf, faviconUrl, genresOf, hostOf, statusLabel, workStatusOf } from '../lib/labels'
 import { useToast } from './Toast'
 import type { Item, ItemInput } from '../types'
 
@@ -20,6 +20,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const toast = useToast()
   const qc = useQueryClient()
   const [fav, setFav] = useState(item.favorite)
+  const [favErr, setFavErr] = useState(false)
 
   const cat = catOf(meta, item.category)
   const color = cat?.color ?? '#71717a'
@@ -28,6 +29,9 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const ac = item.category === 'character' ? acquireOf(meta, item.acquire) : null
 
   const isNovel = item.category === 'novel'
+  const isWebsite = item.category === 'website'
+  const host = hostOf(item.url)
+  const favSrc = isWebsite ? faviconUrl(item.url) : null
   const chaptersQ = useQuery({
     queryKey: ['chapters', item.id],
     queryFn: () => api.chapters(item.id),
@@ -56,6 +60,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
         sub_types: item.sub_types,
         work_status: item.work_status,
         acquire: item.acquire,
+        url: item.url,
         source: item.source,
         rating: item.rating,
         status: item.status,
@@ -92,6 +97,13 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
         <div className="m-cover" style={item.image_url ? undefined : { background: `${color}14` }}>
           {item.image_url ? (
             <img className="m-cover-img" src={item.image_url} alt={item.title} />
+          ) : favSrc && !favErr ? (
+            <img
+              className="m-cover-fav"
+              src={favSrc}
+              alt={item.title}
+              onError={() => setFavErr(true)}
+            />
           ) : (
             <span>{item.emoji ?? cat?.emoji ?? '🎴'}</span>
           )}
@@ -143,6 +155,16 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           </p>
         </div>
         <div className="m-grid">
+          {isWebsite && (
+            <div className="m-row">
+              <i>网址</i>
+              <span className="m-url">
+                <a href={item.url ?? '#'} target="_blank" rel="noreferrer">
+                  {host ?? item.url}
+                </a>
+              </span>
+            </div>
+          )}
           <div className="m-row">
             <i>来源</i>
             <span>{item.source || '—'}</span>
@@ -195,6 +217,11 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
             <button className="btn primary" onClick={() => onRead(item)}>
               {chapters.length > 0 ? '📖 阅读' : '📄 导入正文'}
             </button>
+          )}
+          {isWebsite && (
+            <a className="btn primary" href={item.url ?? '#'} target="_blank" rel="noreferrer">
+              打开网站 ↗
+            </a>
           )}
         </div>
       </div>

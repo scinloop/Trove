@@ -76,6 +76,17 @@ export function IconMe({ size = 18, className }: IconProps) {
   )
 }
 
+/** 网站 · 地球 */
+export function IconGlobe({ size = 18, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  )
+}
+
 /** Trove · 宝箱 logo（treasure chest + sparkle） */
 export function LogoMark({ size = 20, className }: IconProps) {
   return (

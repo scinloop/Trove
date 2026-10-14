@@ -13,9 +13,10 @@ const STATUS_KEYS: Status[] = ['wish', 'doing', 'done']
 interface Props {
   item: Item | null
   onClose: () => void
+  presetCategory?: Category // 从网站栏等入口新建时预选分类
 }
 
-export function ItemForm({ item, onClose }: Props) {
+export function ItemForm({ item, onClose, presetCategory }: Props) {
   const meta = useMeta()
   const toast = useToast()
   const qc = useQueryClient()
@@ -29,6 +30,7 @@ export function ItemForm({ item, onClose }: Props) {
           sub_types: item.sub_types ?? [],
           work_status: item.work_status,
           acquire: item.acquire,
+          url: item.url,
           source: item.source ?? '',
           rating: item.rating,
           status: item.status,
@@ -40,10 +42,11 @@ export function ItemForm({ item, onClose }: Props) {
         }
       : {
           title: '',
-          category: 'anime',
+          category: presetCategory ?? 'anime',
           sub_types: [],
           work_status: null,
           acquire: null,
+          url: null,
           source: '',
           rating: 3,
           status: 'doing',
@@ -88,11 +91,16 @@ export function ItemForm({ item, onClose }: Props) {
       toast(`「${meta.categories.find((c) => c.key === form.category)?.label}」需要至少选择一个题材`)
       return
     }
+    if (form.category === 'website' && !form.url?.trim()) {
+      toast('请填写网站网址')
+      return
+    }
     mut.mutate({
       ...form,
       title,
       sub_types: subTypes,
       acquire: form.category === 'character' ? form.acquire : null, // 获取状态仅角色支持
+      url: form.category === 'website' ? form.url?.trim() || null : null, // 网址仅网站支持
       source: form.source?.trim() || null,
       note: form.note?.trim() || null,
       emoji: form.emoji,
@@ -139,13 +147,14 @@ export function ItemForm({ item, onClose }: Props) {
                     ...f,
                     category: c.key as Category,
                     emoji: null,
-                    // 切换分类：必选题材的分类默认选第一个，其余清空；获取状态仅角色有
+                    // 切换分类：必选题材的分类默认选第一个，其余清空；获取状态仅角色有；网址仅网站有
                     sub_types: meta.genre_required.includes(c.key)
                       ? [((meta.genres[c.key] ?? [])[0]?.key as SubType | undefined)].filter(
                           (k): k is SubType => !!k,
                         )
                       : [],
                     acquire: c.key === 'character' ? f.acquire : null,
+                    url: c.key === 'website' ? f.url : null,
                   }))
                 }
               >
@@ -153,6 +162,16 @@ export function ItemForm({ item, onClose }: Props) {
               </button>
             ))}
           </div>
+          {form.category === 'website' && (
+            <>
+              <label>网址 *</label>
+              <input
+                value={form.url ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                placeholder="github.com（自动补全 https://）"
+              />
+            </>
+          )}
           {subs.length > 0 && (
             <>
               <label>

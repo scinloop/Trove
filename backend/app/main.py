@@ -16,7 +16,7 @@ from sqlalchemy import select, text
 from app.config import BASE_DIR, settings
 from app.database import Base, SessionLocal, engine
 from app.models import Item
-from app.routers import chapters, genres, items, meta, stats, tags, tasks, uploads
+from app.routers import chapters, favicon, genres, items, meta, stats, tags, tasks, uploads
 from app.seed import ensure_genres, ensure_tags_from_items, seed_if_empty, seed_tasks_if_empty
 
 
@@ -35,6 +35,8 @@ async def lifespan(_: FastAPI):
                 await conn.execute(text("ALTER TABLE items ADD COLUMN work_status VARCHAR(12)"))
             if "acquire" not in cols:
                 await conn.execute(text("ALTER TABLE items ADD COLUMN acquire VARCHAR(12)"))
+            if "url" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN url VARCHAR(500)"))
         tag_cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(tags)"))).fetchall()}
         if tag_cols and "group" not in tag_cols:
             await conn.execute(text('ALTER TABLE tags ADD COLUMN "group" VARCHAR(20)'))
@@ -69,6 +71,7 @@ app.include_router(uploads.router, prefix="/api")
 app.include_router(genres.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
 app.include_router(chapters.router, prefix="/api")
+app.include_router(favicon.router, prefix="/api")
 
 # ---- uploaded images (must be registered before the SPA catch-all) ----
 # URL /static/uploads/<file> -> data/uploads/<file>
