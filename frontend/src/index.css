@@ -1102,8 +1102,9 @@ select {
 
 .fab {
   position: absolute;
-  right: 16px;
+  left: 50%;
   top: -26px;
+  transform: translateX(-50%);
   width: 52px;
   height: 52px;
   border-radius: 50%;
