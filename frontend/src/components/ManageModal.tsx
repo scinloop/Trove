@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { api } from '../api/client'
+import { useConfirm } from './Confirm'
 import { useMeta } from '../hooks/queries'
 import { useToast } from './Toast'
 
@@ -68,6 +69,7 @@ function EmojiColorPicker({
 /** 题材库 + 标签库 + 主分类 + 标签分组 管理弹层（入口：我的 → 题材与标签管理 / 网站栏 → 管理分类） */
 export function ManageModal({ onClose, initialCat }: Props) {
   const meta = useMeta()
+  const confirm = useConfirm()
   const toast = useToast()
   const qc = useQueryClient()
   const [tab, setTab] = useState<'cats' | 'genres' | 'tags'>('genres')
@@ -370,7 +372,15 @@ export function ManageModal({ onClose, initialCat }: Props) {
                       >
                         编辑
                       </button>
-                      <button className="mini-btn danger" onClick={() => catDel.mutate(c.key)}>
+                      <button
+                        className="mini-btn danger"
+                        onClick={() =>
+                          confirm(
+                            { title: `删除分类「${c.emoji} ${c.label}」？`, desc: '需先清空该分类下的收藏与题材；删除后无法恢复。' },
+                            () => catDel.mutate(c.key),
+                          )
+                        }
+                      >
                         删除
                       </button>
                     </>
@@ -443,7 +453,14 @@ export function ManageModal({ onClose, initialCat }: Props) {
                       >
                         改名
                       </button>
-                      <button className="mini-btn danger" onClick={() => gDel.mutate(g.id)}>
+                      <button
+                        className="mini-btn danger"
+                        onClick={() =>
+                          confirm({ title: `删除题材「${g.label}」？`, desc: '有收藏在用时会被拒绝；删除后无法恢复。' }, () =>
+                            gDel.mutate(g.id),
+                          )
+                        }
+                      >
                         删除
                       </button>
                     </>
@@ -514,7 +531,19 @@ export function ManageModal({ onClose, initialCat }: Props) {
                         >
                           改名
                         </button>
-                        <button className="mini-btn danger" onClick={() => tgDel.mutate(g.id)}>
+                        <button
+                          className="mini-btn danger"
+                          onClick={() =>
+                            confirm(
+                              {
+                                title: `删除分组「${g.name}」？`,
+                                desc: '组内标签将移入「未分组」，标签本身保留。',
+                                yes: '删除分组',
+                              },
+                              () => tgDel.mutate(g.id),
+                            )
+                          }
+                        >
                           删除
                         </button>
                       </>
@@ -612,7 +641,15 @@ export function ManageModal({ onClose, initialCat }: Props) {
                           >
                             编辑
                           </button>
-                          <button className="mini-btn danger" onClick={() => tDel.mutate(t.id)}>
+                          <button
+                            className="mini-btn danger"
+                            onClick={() =>
+                              confirm(
+                                { title: `删除标签「${t.label}」？`, desc: '仅从标签库移除；条目上已有的该标签保留。' },
+                                () => tDel.mutate(t.id),
+                              )
+                            }
+                          >
                             删除
                           </button>
                         </>

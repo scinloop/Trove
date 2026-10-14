@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { BottomBar } from './components/BottomBar'
 import { ChapterManager } from './components/ChapterManager'
+import { ConfirmProvider } from './components/Confirm'
 import { ItemForm } from './components/ItemForm'
 import { ItemModal } from './components/ItemModal'
 import { ManageModal } from './components/ManageModal'
@@ -66,6 +67,7 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <ConfirmProvider>
       <div className="app">
         <div className="app-body">
           <Sidebar />
@@ -151,6 +153,7 @@ export default function App() {
         )}
         {manageOpen && <ManageModal onClose={() => setManageOpen(false)} initialCat={manageCat} />}
       </div>
+      </ConfirmProvider>
     </ToastProvider>
   )
 }

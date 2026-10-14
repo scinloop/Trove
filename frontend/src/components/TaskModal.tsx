@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
+import { useConfirm } from './Confirm'
 import { useMeta } from '../hooks/queries'
 import { fmtMinutes, taskStatusLabel } from '../lib/labels'
 import { useToast } from './Toast'
@@ -17,6 +18,7 @@ interface Props {
 export function TaskModal({ task, onClose, onEdit, onChanged }: Props) {
   const meta = useMeta()
   const toast = useToast()
+  const confirm = useConfirm()
   const qc = useQueryClient()
 
   const statusMut = useMutation({
@@ -128,7 +130,16 @@ export function TaskModal({ task, onClose, onEdit, onChanged }: Props) {
           <button className="btn ghost" onClick={onClose}>
             关闭
           </button>
-          <button className="btn ghost danger" onClick={() => delMut.mutate()} disabled={delMut.isPending}>
+          <button
+            className="btn ghost danger"
+            onClick={() =>
+              confirm(
+                { title: `删除任务「${task.title}」？`, desc: '5 秒内可在提示条上撤销；确认后无法找回。' },
+                () => delMut.mutate(),
+              )
+            }
+            disabled={delMut.isPending}
+          >
             删除
           </button>
           <button className="btn primary" onClick={() => onEdit(task)}>

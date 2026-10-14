@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
+import { useConfirm } from './Confirm'
 import { useMeta } from '../hooks/queries'
 import { catOf, fmtWords, acquireOf, faviconUrl, genresOf, hostOf, statusLabel, workStatusOf } from '../lib/labels'
 import { useToast } from './Toast'
@@ -18,6 +19,7 @@ interface Props {
 export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: Props) {
   const meta = useMeta()
   const toast = useToast()
+  const confirm = useConfirm()
   const qc = useQueryClient()
   const [fav, setFav] = useState(item.favorite)
   const [favErr, setFavErr] = useState(false)
@@ -215,7 +217,19 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               章节管理
             </button>
           )}
-          <button className="btn ghost danger" onClick={() => delMut.mutate()} disabled={delMut.isPending}>
+          <button
+            className="btn ghost danger"
+            onClick={() =>
+              confirm(
+                {
+                  title: `删除「${item.title}」？`,
+                  desc: '收藏将进入回收流程：5 秒内可撤销；确认后无法找回。',
+                },
+                () => delMut.mutate(),
+              )
+            }
+            disabled={delMut.isPending}
+          >
             删除
           </button>
           {isNovel && (

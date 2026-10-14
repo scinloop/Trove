@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { api } from '../api/client'
+import { useConfirm } from './Confirm'
 import { fmtWords } from '../lib/labels'
 import { useToast } from './Toast'
 import type { Item } from '../types'
@@ -13,6 +14,7 @@ interface Props {
 /** 章节管理：导入 .txt / 整本粘贴 / 重新分章 / 增删改章节 */
 export function ChapterManager({ item, onClose }: Props) {
   const toast = useToast()
+  const confirm = useConfirm()
   const qc = useQueryClient()
   const chaptersQ = useQuery({ queryKey: ['chapters', item.id], queryFn: () => api.chapters(item.id) })
   const chapters = chaptersQ.data ?? []
@@ -110,14 +112,15 @@ export function ChapterManager({ item, onClose }: Props) {
     }
   }
 
-  const delCh = async (c: { id: number; title: string }) => {
-    if (!window.confirm(`删除「${c.title}」？`)) return
-    try {
-      await api.deleteChapter(c.id)
-      refresh()
-    } catch (e) {
-      toast((e as Error).message)
-    }
+  const delCh = (c: { id: number; title: string }) => {
+    confirm({ title: `删除章节「${c.title}」？`, desc: '章节正文将一并删除，无法撤销。' }, async () => {
+      try {
+        await api.deleteChapter(c.id)
+        refresh()
+      } catch (e) {
+        toast((e as Error).message)
+      }
+    })
   }
 
   return (
