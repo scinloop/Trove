@@ -164,6 +164,9 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           <button className="btn ghost" onClick={onClose}>
             关闭
           </button>
+          <button className="btn ghost" onClick={() => onEdit(item)}>
+            编辑
+          </button>
           {isNovel && (
             <button className="btn ghost" onClick={() => onManageChapters(item)}>
               章节管理
@@ -172,13 +175,9 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           <button className="btn ghost danger" onClick={() => delMut.mutate()} disabled={delMut.isPending}>
             删除
           </button>
-          {isNovel ? (
+          {isNovel && (
             <button className="btn primary" onClick={() => onRead(item)}>
               {chapters.length > 0 ? '📖 阅读' : '📄 导入正文'}
-            </button>
-          ) : (
-            <button className="btn primary" onClick={() => onEdit(item)}>
-              编辑
             </button>
           )}
         </div>
