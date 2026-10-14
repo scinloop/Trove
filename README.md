@@ -18,7 +18,7 @@ collecthub/
 │   │   ├── crud.py          # 收藏/题材/标签/章节 的筛选、增删改、分章与书内搜索
 │   │   ├── seed.py          # 题材库补齐 + 演示数据（python -m app.seed [--reset]）
 │   │   └── routers/         # items / tasks / uploads / meta / stats / genres / tags / chapters
-│   └── tests/test_api.py    # 23 个接口测试（内存 SQLite）
+│   └── tests/test_api.py    # 25 个接口测试（内存 SQLite）
 └── frontend/                # React 前端（Vite 8 + React 19 + TS 严格模式）
     └── src/
         ├── api/client.ts    # fetch 封装（/api + 图片上传 + .txt 导入）
@@ -30,8 +30,9 @@ collecthub/
 
 ## 功能亮点
 
+- **主分类自定义**：「我的 → 题材与标签管理 → 主分类」可自由**添加/改名/换 emoji·配色/排序/删除**主分类（漫画、小说…不再是写死的），新分类即刻出现在收藏墙与表单中；有收藏或题材的分类删除会被拦截。
 - **题材库**：各分类的子分类统一进 `genres` 表维护（「我的 → 题材与标签管理」），可加题材、改名、排序；有收藏引用的题材删除会被拦截。**每条收藏可挂 0 个、1 个或多个题材**；角色/漫画至少选一个。
-- **标签库**：标签按分组归类（服装 / 体型 / 玩法 / 行为 / 角色 / 风格 / 场景 / 情感…），选择器与管理页都按组分节；重命名/换分组级联更新所有条目，删除仅移出库不影响条目。
+- **标签库**：标签按分组归类，**分组本身也可增删改排序**（标签库 tab → 分组管理；改组名级联标签，删组只把标签移入未分组）；标签重命名/换分组级联更新所有条目，删除仅移出库不影响条目。
 - **作品状态**：预告 / 更新中 / 已完结 三态（与收藏进度 wish/doing/done 相互独立，可空 = 未设置），卡片与详情均有标识。
 - **网站栏**：网址收藏专用页（侧栏「网站栏」/ 手机底栏「网站」），网站条目填网址（自动补全 https://）即可挂多个自定义分类与标签；**站点图标（favicon）由后端自动解析并缓存**到本地，卡片与详情直接展示，点击 ↗ 直达网站。
 - **小说阅读器**：小说条目支持导入正文（.txt 上传 / 整本粘贴，UTF-8 优先自动回退 GBK），按「第X章 / 卷 / Chapter N」自动分章（可自定义正则重新分章）；全屏阅读器带目录抽屉（每章字数）、字号/行距/浅色·护眼·夜间三主题、阅读进度记忆。
@@ -70,6 +71,10 @@ cd ../backend
 | POST | `/api/items` | 新增（201，题材按分类校验；website 需带 `url`） |
 | GET | `/api/favicon?host=` | 解析并缓存网站图标（`refresh=1` 强制重新抓取） |
 | GET/PATCH/DELETE | `/api/items/{id}` | 详情 / 部分更新 / 删除（204） |
+| GET/POST | `/api/categories` | 主分类库（动态）/ 新增（label+emoji+color） |
+| PATCH/DELETE | `/api/categories/{key}` | 改名·emoji·配色 / 删除（有收藏或题材时 409，`POST /{key}/move` 排序） |
+| GET/POST | `/api/tag-groups` | 标签分组列表（带组内标签数）/ 新增 |
+| PATCH/DELETE | `/api/tag-groups/{id}` | 改名（级联标签）/ 删除（组内标签移入未分组，`POST /{id}/move` 排序） |
 | GET/POST | `/api/genres` | 题材库列表 / 新增（POST `/{id}/move?dir=up\|down` 排序，PATCH 改名，DELETE 引用>0 时 409） |
 | GET/POST | `/api/tags` | 标签库（带 usage 计数与分组 group）/ 新增（幂等，存在返回 200） |
 | PATCH/DELETE | `/api/tags/{id}` | 重命名 / 换分组（级联条目）/ 移出标签库 |
@@ -89,7 +94,7 @@ cd ../backend
 ## 测试
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest -v   # 23 passed
+cd backend && .venv\Scripts\python -m pytest -v   # 25 passed
 cd frontend && pnpm build                          # tsc -b 严格模式 + vite build
 ```
 

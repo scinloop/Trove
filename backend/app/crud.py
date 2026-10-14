@@ -10,13 +10,11 @@ from sqlalchemy import String, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import (
-    CATEGORY_EMOJI,
-    CATEGORY_LABEL,
     GENRE_PALETTE,
     REQUIRED_GENRE_CATEGORIES,
     genre_color,
 )
-from app.models import Chapter, Genre, Item, Tag, Task
+from app.models import Category, Chapter, Genre, Item, Tag, TagGroup, Task
 from app.schemas import ItemBase, ItemCreate, ItemUpdate, TaskBase, TaskCreate, TaskUpdate
 
 
@@ -72,6 +70,9 @@ async def _genres_of(session: AsyncSession, category: str) -> list[Genre]:
 
 async def create_item(session: AsyncSession, data: ItemCreate) -> Item:
     item = Item(**data.model_dump())
+    cat = await session.get(Category, item.category)
+    if not cat:
+        raise HTTPException(status_code=422, detail=f"未知分类: {item.category}")
     genres = await _genres_of(session, item.category)
     keys = {g.key for g in genres}
     if item.sub_types:
@@ -80,10 +81,10 @@ async def create_item(session: AsyncSession, data: ItemCreate) -> Item:
             raise HTTPException(status_code=422, detail=f"未知题材: {', '.join(unknown)}")
     elif item.category in REQUIRED_GENRE_CATEGORIES:
         raise HTTPException(
-            status_code=422, detail=f"「{CATEGORY_LABEL.get(item.category, item.category)}」需要至少选择一个题材"
+            status_code=422, detail=f"「{cat.label}」需要至少选择一个题材"
         )
     if not item.emoji:
-        item.emoji = CATEGORY_EMOJI.get(item.category)
+        item.emoji = cat.emoji
     session.add(item)
     await session.commit()
     await session.refresh(item)
@@ -95,6 +96,9 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
     merged = {name: getattr(item, name) for name in ItemBase.model_fields}
     merged.update(changes)
     new_category = merged["category"]
+    cat = await session.get(Category, new_category)
+    if not cat:
+        raise HTTPException(status_code=422, detail=f"未知分类: {new_category}")
     genres = await _genres_of(session, new_category)
     keys = {g.key for g in genres}
     # 过滤掉不属于该分类的题材 key（失效/拼错的直接丢弃）
@@ -104,7 +108,7 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
         if not subs and new_category in REQUIRED_GENRE_CATEGORIES and keys:
             raise HTTPException(
                 status_code=422,
-                detail=f"「{CATEGORY_LABEL.get(new_category, new_category)}」需要至少选择一个题材",
+                detail=f"「{cat.label}」需要至少选择一个题材",
             )
     elif keys:
         if not subs and new_category in REQUIRED_GENRE_CATEGORIES:
@@ -122,7 +126,7 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
     item.sub_types = subs
     item.url = merged_item.url  # 应用 url 规范化（补全协议 / 非网站分类清空）
     if not item.emoji:
-        item.emoji = CATEGORY_EMOJI.get(item.category)
+        item.emoji = cat.emoji
     await session.commit()
     await session.refresh(item)
     return item
@@ -131,6 +135,143 @@ async def update_item(session: AsyncSession, item: Item, data: ItemUpdate) -> It
 async def delete_item(session: AsyncSession, item: Item) -> None:
     await session.execute(delete(Chapter).where(Chapter.item_id == item.id))
     await session.delete(item)
+    await session.commit()
+
+
+# ---------------- categories（主分类库） ----------------
+
+async def list_categories(session: AsyncSession) -> list[Category]:
+    rows = await session.execute(select(Category).order_by(Category.sort_order, Category.key))
+    return list(rows.scalars().all())
+
+
+async def category_keys(session: AsyncSession) -> set[str]:
+    rows = await session.execute(select(Category.key))
+    return {r[0] for r in rows.all()}
+
+
+async def create_category(
+    session: AsyncSession, *, label: str, emoji: str | None, color: str | None, note: str | None
+) -> Category:
+    label = label.strip()
+    if not label:
+        raise HTTPException(status_code=422, detail="分类名称不能为空")
+    key = "c_" + uuid.uuid4().hex[:8]
+    count = (await session.execute(select(func.count()).select_from(Category))).scalar_one()
+    cat = Category(
+        key=key,
+        label=label,
+        emoji=(emoji or "🎴").strip() or "🎴",
+        color=color or GENRE_PALETTE[count % len(GENRE_PALETTE)],
+        note=(note or None),
+        sort_order=count,
+    )
+    session.add(cat)
+    await session.commit()
+    await session.refresh(cat)
+    return cat
+
+
+async def update_category(
+    session: AsyncSession,
+    cat: Category,
+    *,
+    label: str | None = None,
+    emoji: str | None = None,
+    color: str | None = None,
+    note: str | None = None,
+) -> Category:
+    if label is not None:
+        cat.label = label.strip() or cat.label
+    if emoji is not None and emoji.strip():
+        cat.emoji = emoji.strip()
+    if color:
+        cat.color = color
+    if note is not None:
+        cat.note = note.strip() or None
+    await session.commit()
+    await session.refresh(cat)
+    return cat
+
+
+async def move_category(session: AsyncSession, cat: Category, direction: str) -> None:
+    siblings = await list_categories(session)
+    idx = siblings.index(cat)
+    other = idx - 1 if direction == "up" else idx + 1
+    if other < 0 or other >= len(siblings):
+        return
+    cat.sort_order, siblings[other].sort_order = siblings[other].sort_order, cat.sort_order
+    await session.commit()
+
+
+async def delete_category(session: AsyncSession, cat: Category) -> None:
+    used = await session.scalar(select(func.count()).select_from(Item).where(Item.category == cat.key))
+    if used:
+        raise HTTPException(status_code=409, detail=f"「{cat.label}」下还有 {used} 条收藏，先移走再删除")
+    genre_used = await session.scalar(select(func.count()).select_from(Genre).where(Genre.category == cat.key))
+    if genre_used:
+        raise HTTPException(status_code=409, detail=f"「{cat.label}」的题材库还有 {genre_used} 个题材，先清空再删除")
+    await session.delete(cat)
+    await session.commit()
+
+
+# ---------------- tag_groups（标签大分组） ----------------
+
+async def list_tag_groups(session: AsyncSession) -> list[TagGroup]:
+    rows = await session.execute(select(TagGroup).order_by(TagGroup.sort_order, TagGroup.id))
+    return list(rows.scalars().all())
+
+
+async def create_tag_group(session: AsyncSession, name: str) -> TagGroup:
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="分组名称不能为空")
+    existing = await session.scalar(select(TagGroup).where(TagGroup.name == name))
+    if existing:
+        raise HTTPException(status_code=409, detail=f"分组「{name}」已存在")
+    count = (await session.execute(select(func.count()).select_from(TagGroup))).scalar_one()
+    group = TagGroup(name=name, sort_order=count)
+    session.add(group)
+    await session.commit()
+    await session.refresh(group)
+    return group
+
+
+async def rename_tag_group(session: AsyncSession, group: TagGroup, new_name: str) -> TagGroup:
+    new_name = new_name.strip()
+    if not new_name or new_name == group.name:
+        return group
+    dup = await session.scalar(select(TagGroup).where(TagGroup.name == new_name))
+    if dup:
+        raise HTTPException(status_code=409, detail=f"分组「{new_name}」已存在")
+    old = group.name
+    group.name = new_name
+    # 级联：标签库与条目的 group 字段同步改名
+    tags = (await session.execute(select(Tag).where(Tag.group == old))).scalars().all()
+    for t in tags:
+        t.group = new_name
+    await session.commit()
+    await session.refresh(group)
+    return group
+
+
+async def delete_tag_group(session: AsyncSession, group: TagGroup) -> None:
+    """删除分组：组内标签改为未分组（不删标签），返回受影响标签数。"""
+    tags = (await session.execute(select(Tag).where(Tag.group == group.name))).scalars().all()
+    for t in tags:
+        t.group = None
+    await session.delete(group)
+    await session.commit()
+    return len(tags)
+
+
+async def move_tag_group(session: AsyncSession, group: TagGroup, direction: str) -> None:
+    siblings = await list_tag_groups(session)
+    idx = siblings.index(group)
+    other = idx - 1 if direction == "up" else idx + 1
+    if other < 0 or other >= len(siblings):
+        return
+    group.sort_order, siblings[other].sort_order = siblings[other].sort_order, group.sort_order
     await session.commit()
 
 

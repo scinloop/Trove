@@ -4,18 +4,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import (
     ACQUIRE_STATUS,
-    CATEGORIES,
     REQUIRED_GENRE_CATEGORIES,
     STATUS_COLORS,
     STATUS_LABELS,
-    TAG_GROUPS,
     TASK_KIND_META,
     TASK_KINDS,
     TASK_STATUS_COLORS,
     TASK_STATUS_LABELS,
     WORK_STATUS,
 )
-from app.crud import list_genres
+from app.crud import list_categories, list_genres, list_tag_groups
 from app.database import get_session
 
 router = APIRouter(tags=["meta"])
@@ -28,8 +26,13 @@ async def get_meta(session: AsyncSession = Depends(get_session)) -> dict:
         genres.setdefault(g.category, []).append(
             {"key": g.key, "label": g.label, "color": g.color}
         )
+    categories = [
+        {"key": c.key, "label": c.label, "emoji": c.emoji, "color": c.color, "note": c.note}
+        for c in await list_categories(session)
+    ]
+    tag_groups = [g.name for g in await list_tag_groups(session)]
     return {
-        "categories": CATEGORIES,
+        "categories": categories,
         "genres": genres,
         "genre_required": REQUIRED_GENRE_CATEGORIES,
         "work_status": [
@@ -38,7 +41,7 @@ async def get_meta(session: AsyncSession = Depends(get_session)) -> dict:
         "acquire_status": [
             {"key": k, "label": v["label"], "color": v["color"]} for k, v in ACQUIRE_STATUS.items()
         ],
-        "tag_groups": TAG_GROUPS,
+        "tag_groups": tag_groups,
         "status_colors": STATUS_COLORS,
         "status_labels": STATUS_LABELS,
         "task_kinds": TASK_KINDS,

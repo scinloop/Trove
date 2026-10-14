@@ -30,8 +30,31 @@ class Item(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+class Category(Base):
+    """主分类（漫画/小说/…）：可自主增删改排序；items.category 存 key。"""
+
+    __tablename__ = "categories"
+
+    key: Mapped[str] = mapped_column(String(20), primary_key=True)
+    label: Mapped[str] = mapped_column(String(50))
+    emoji: Mapped[str] = mapped_column(String(16), default="🎴")
+    color: Mapped[str] = mapped_column(String(20), default="#71717a")
+    note: Mapped[str | None] = mapped_column(String(100))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TagGroup(Base):
+    """标签大分组（服装/体型/行为…）：可自主增删；tags.group 存分组名。"""
+
+    __tablename__ = "tag_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(20), unique=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Genre(Base):
-    """可维护的题材（子分类）库：按分类分组，items.sub_type 存 key。"""
+    """可维护的题材（子分类）库：按分类分组，items.sub_types 存 key 列表。"""
 
     __tablename__ = "genres"
 

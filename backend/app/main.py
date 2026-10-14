@@ -14,10 +14,30 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
 from app.config import BASE_DIR, settings
+from app.constants import CATEGORIES, TAG_GROUPS
 from app.database import Base, SessionLocal, engine
-from app.models import Item
-from app.routers import chapters, favicon, genres, items, meta, stats, tags, tasks, uploads
+from app.models import Category, Item, TagGroup
+from app.routers import categories, chapters, favicon, genres, items, meta, stats, tags, tasks, uploads
 from app.seed import ensure_genres, ensure_tags_from_items, seed_if_empty, seed_tasks_if_empty
+
+
+async def seed_categories(session) -> None:
+    """categories / tag_groups 表空时从常量写入种子（幂等）。"""
+    count = (await session.execute(select(Category.key))).all()
+    if not count:
+        for i, c in enumerate(CATEGORIES):
+            session.add(
+                Category(
+                    key=c["key"], label=c["label"], emoji=c["emoji"], color=c["color"],
+                    note=c.get("note"), sort_order=i,
+                )
+            )
+        await session.commit()
+    gcount = (await session.execute(select(TagGroup.id))).all()
+    if not gcount:
+        for i, name in enumerate(TAG_GROUPS):
+            session.add(TagGroup(name=name, sort_order=i))
+        await session.commit()
 
 
 @asynccontextmanager
@@ -48,6 +68,7 @@ async def lifespan(_: FastAPI):
         if rows:
             await session.commit()
         await ensure_genres(session)          # 题材库默认数据（幂等）
+        await seed_categories(session)        # 主分类/标签分组表种子（幂等）
         await seed_if_empty()
         await ensure_tags_from_items(session)  # 存量标签补进标签库（幂等）
         await seed_tasks_if_empty()
@@ -72,6 +93,7 @@ app.include_router(genres.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
 app.include_router(chapters.router, prefix="/api")
 app.include_router(favicon.router, prefix="/api")
+app.include_router(categories.router, prefix="/api")
 
 # ---- uploaded images (must be registered before the SPA catch-all) ----
 # URL /static/uploads/<file> -> data/uploads/<file>

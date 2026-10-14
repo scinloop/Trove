@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.constants import (
     ACQUIRE_STATUS_KEYS,
-    CATEGORY_KEYS,
     STATUS_KEYS,
     TASK_KINDS,
     WORK_STATUS_KEYS,
@@ -14,7 +13,7 @@ from app.constants import (
 
 class ItemBase(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    category: str
+    category: str  # 主分类 key（categories 表，动态可增删）
     sub_types: list[str] = Field(default_factory=list, max_length=20)  # 多选题材 key
     work_status: str | None = None  # 作品状态：upcoming|ongoing|finished，可空
     acquire: str | None = None  # 角色获取状态：owned|not_owned|skip|teaser，仅 character 分类
@@ -30,9 +29,7 @@ class ItemBase(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "ItemBase":
-        # 题材(sub_types)与分类的匹配校验需要查 genres 表，放在 crud 中做
-        if self.category not in CATEGORY_KEYS:
-            raise ValueError(f"unknown category: {self.category}")
+        # 题材(sub_types)/分类存在性 需要查表，放在 crud 中做
         if self.status not in STATUS_KEYS:
             raise ValueError(f"unknown status: {self.status}")
         if self.work_status is not None and self.work_status not in WORK_STATUS_KEYS:
@@ -110,17 +107,37 @@ class ItemOut(BaseModel):
     updated_at: datetime
 
 
+# ---------------- categories（主分类库） ----------------
+
+class CategoryCreate(BaseModel):
+    label: str = Field(min_length=1, max_length=50)
+    emoji: str | None = Field(default=None, max_length=16)
+    color: str | None = Field(default=None, max_length=20)
+    note: str | None = Field(default=None, max_length=100)
+
+
+class CategoryUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=50)
+    emoji: str | None = Field(default=None, max_length=16)
+    color: str | None = Field(default=None, max_length=20)
+    note: str | None = Field(default=None, max_length=100)
+
+
+# ---------------- tag_groups（标签大分组） ----------------
+
+class TagGroupCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=20)
+
+
+class TagGroupRename(BaseModel):
+    name: str = Field(min_length=1, max_length=20)
+
+
 # ---------------- genres（题材库） ----------------
 
 class GenreCreate(BaseModel):
-    category: str
+    category: str  # 动态分类 key，存在性在路由层查 categories 表
     label: str = Field(min_length=1, max_length=50)
-
-    @model_validator(mode="after")
-    def _validate(self) -> "GenreCreate":
-        if self.category not in CATEGORY_KEYS:
-            raise ValueError(f"unknown category: {self.category}")
-        return self
 
 
 class GenreUpdate(BaseModel):

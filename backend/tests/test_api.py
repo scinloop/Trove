@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_session
-from app.main import app
+from app.main import app, seed_categories
 from app.seed import ensure_genres
 
 CHARACTER_ITEM = {
@@ -47,7 +47,8 @@ async def client():
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with session_factory() as session:
-        await ensure_genres(session)  # 题材库默认数据
+        await ensure_genres(session)   # 题材库默认数据
+        await seed_categories(session)  # 主分类/标签分组默认数据
 
     async def override():
         async with session_factory() as session:
@@ -220,6 +221,81 @@ async def test_website_items(client):
     assert any(c["key"] == "website" for c in meta["categories"])
     assert any(g["key"] == "tool" for g in meta["genres"]["website"])
     assert meta["status_labels"]["website"] == {"wish": "想存", "doing": "在用", "done": "已存"}
+
+
+async def test_categories_manage(client):
+    # 新增主分类（key 自动生成）
+    r = await client.post(
+        "/api/categories", json={"label": "播客", "emoji": "🎧", "color": "#8b5cf6", "note": "音频节目"}
+    )
+    assert r.status_code == 201
+    cat = r.json()
+    assert cat["key"].startswith("c_") and cat["label"] == "播客"
+
+    # meta 立即可见
+    meta = (await client.get("/api/meta")).json()
+    assert any(c["key"] == cat["key"] for c in meta["categories"])
+
+    # 往新分类里加条目
+    r = await client.post("/api/items", json={"title": "凑单播客", "category": cat["key"]})
+    assert r.status_code == 201 and r.json()["emoji"] == "🎧"
+
+    # 往新分类里加题材
+    r = await client.post("/api/genres", json={"category": cat["key"], "label": "科技"})
+    assert r.status_code == 201
+
+    # 改名
+    r = await client.patch(f"/api/categories/{cat['key']}", json={"label": "电台"})
+    assert r.json()["label"] == "电台"
+
+    # 有条目时删除被拦截
+    r = await client.delete(f"/api/categories/{cat['key']}")
+    assert r.status_code == 409
+
+    # 清掉条目与题材后可删除
+    items = (await client.get(f"/api/items?category={cat['key']}")).json()
+    for it in items:
+        await client.delete(f"/api/items/{it['id']}")
+    genres = [g for g in (await client.get("/api/genres")).json() if g["category"] == cat["key"]]
+    for g in genres:
+        await client.delete(f"/api/genres/{g['id']}")
+    r = await client.delete(f"/api/categories/{cat['key']}")
+    assert r.status_code == 204
+
+    # 未知分类的条目/题材被拒
+    r = await client.post("/api/items", json={"title": "x", "category": "nope"})
+    assert r.status_code == 422
+    r = await client.post("/api/genres", json={"category": "nope", "label": "y"})
+    assert r.status_code == 422
+
+
+async def test_tag_groups_manage(client):
+    # 新增分组
+    r = await client.post("/api/tag-groups", json={"name": "口味"})
+    assert r.status_code == 201
+    gid = r.json()["id"]
+
+    # 重复创建被拒
+    r = await client.post("/api/tag-groups", json={"name": "口味"})
+    assert r.status_code == 409
+
+    # 组内加标签
+    r = await client.post("/api/tags", json={"label": "甜", "group": "口味"})
+    assert r.status_code == 201
+
+    # 改组名级联标签
+    r = await client.patch(f"/api/tag-groups/{gid}", json={"name": "味道"})
+    assert r.json()["name"] == "味道"
+    tags = (await client.get("/api/tags")).json()
+    sweet = next(t for t in tags if t["label"] == "甜")
+    assert sweet["group"] == "味道"
+
+    # 删除组：标签改为未分组，不删除
+    r = await client.delete(f"/api/tag-groups/{gid}")
+    assert r.json()["moved_to_ungrouped"] == 1
+    tags = (await client.get("/api/tags")).json()
+    sweet = next(t for t in tags if t["label"] == "甜")
+    assert sweet["group"] is None
 
 
 async def test_list_filter_search_sort(client):

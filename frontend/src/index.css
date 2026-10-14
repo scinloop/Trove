@@ -2104,6 +2104,28 @@ select {
   letter-spacing: 0.04em;
 }
 
+/* 标签分组管理折叠区 */
+.tg-toggle {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  padding: 2px 0;
+}
+
+.tg-box {
+  padding: 8px 10px;
+  background: var(--panel2);
+  border-radius: 12px;
+}
+
+.mi-note {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 11px;
+  margin-left: 6px;
+}
+
 /* ---------- 网站栏 / favicon ---------- */
 
 .site-grid {

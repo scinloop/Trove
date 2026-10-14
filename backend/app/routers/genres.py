@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.database import get_session
-from app.models import Genre
+from app.models import Category, Genre
 from app.schemas import GenreCreate, GenreUpdate
 
 router = APIRouter(prefix="/genres", tags=["genres"])
@@ -35,6 +35,8 @@ async def list_genres(session: AsyncSession = Depends(get_session)) -> list[dict
 
 @router.post("", status_code=201)
 async def create_genre(data: GenreCreate, session: AsyncSession = Depends(get_session)) -> dict:
+    if not await session.get(Category, data.category):
+        raise HTTPException(status_code=422, detail=f"未知分类: {data.category}")
     return _dump(await crud.create_genre(session, data.category, data.label))
 
 

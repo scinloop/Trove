@@ -9,12 +9,12 @@ interface Props {
   initialCat?: string // 打开时预选的分类（如从网站栏进入 → website）
 }
 
-/** 题材库 + 标签库 管理弹层（入口：我的 → 题材与标签管理 / 网站栏 → 管理分类） */
+/** 题材库 + 标签库 + 主分类 + 标签分组 管理弹层（入口：我的 → 题材与标签管理 / 网站栏 → 管理分类） */
 export function ManageModal({ onClose, initialCat }: Props) {
   const meta = useMeta()
   const toast = useToast()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'genres' | 'tags'>('genres')
+  const [tab, setTab] = useState<'cats' | 'genres' | 'tags'>('genres')
   const [cat, setCat] = useState(initialCat ?? 'novel')
   const [newLabel, setNewLabel] = useState('')
   const [newTagGroup, setNewTagGroup] = useState('') // '' = 未分组
@@ -24,14 +24,33 @@ export function ManageModal({ onClose, initialCat }: Props) {
   const [tLabel, setTLabel] = useState('')
   const [tGroup, setTGroup] = useState('') // 编辑标签时的分组
   const [tagSearch, setTagSearch] = useState('')
+  const [groupsOpen, setGroupsOpen] = useState(false) // 标签分组管理折叠区
+
+  // 主分类编辑状态
+  const [cEdit, setCEdit] = useState<string | null>(null) // 编辑中的分类 key
+  const [cLabel, setCLabel] = useState('')
+  const [cEmoji, setCEmoji] = useState('')
+  const [cColor, setCColor] = useState('')
+  const [newCat, setNewCat] = useState({ label: '', emoji: '', color: '' })
+
+  // 标签分组编辑状态
+  const [tgEdit, setTgEdit] = useState<number | null>(null)
+  const [tgName, setTgName] = useState('')
+  const [newGroupName, setNewGroupName] = useState('')
 
   const genresQ = useQuery({ queryKey: ['genres'], queryFn: api.genres })
   const tagsQ = useQuery({ queryKey: ['tags'], queryFn: api.tags })
+  const catsQ = useQuery({ queryKey: ['categories'], queryFn: api.categories })
+  const tagGroupsQ = useQuery({ queryKey: ['tag-groups'], queryFn: api.tagGroups })
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['genres'] })
     void qc.invalidateQueries({ queryKey: ['tags'] })
     void qc.invalidateQueries({ queryKey: ['meta'] })
+    void qc.invalidateQueries({ queryKey: ['categories'] })
+    void qc.invalidateQueries({ queryKey: ['tag-groups'] })
+    void qc.invalidateQueries({ queryKey: ['items'] })
+    void qc.invalidateQueries({ queryKey: ['stats'] })
   }
 
   const addMut = useMutation({
@@ -88,6 +107,82 @@ export function ManageModal({ onClose, initialCat }: Props) {
     onError: (e) => toast((e as Error).message),
   })
 
+  // ---- 主分类 ----
+  const catCreate = useMutation({
+    mutationFn: () =>
+      api.createCategory({
+        label: newCat.label.trim(),
+        emoji: newCat.emoji.trim() || undefined,
+        color: newCat.color.trim() || undefined,
+      }),
+    onSuccess: (c) => {
+      setNewCat({ label: '', emoji: '', color: '' })
+      invalidate()
+      toast(`已添加分类「${c.label}」，现在可以往里加题材了`)
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+  const catUpdate = useMutation({
+    mutationFn: (p: { key: string }) =>
+      api.updateCategory(p.key, {
+        label: cLabel.trim() || undefined,
+        emoji: cEmoji.trim() || undefined,
+        color: cColor.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setCEdit(null)
+      invalidate()
+      toast('已保存')
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+  const catMove = useMutation({
+    mutationFn: (p: { key: string; dir: 'up' | 'down' }) => api.moveCategory(p.key, p.dir),
+    onSuccess: invalidate,
+    onError: (e) => toast((e as Error).message),
+  })
+  const catDel = useMutation({
+    mutationFn: (key: string) => api.deleteCategory(key),
+    onSuccess: () => {
+      invalidate()
+      toast('已删除分类')
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+
+  // ---- 标签分组 ----
+  const tgCreate = useMutation({
+    mutationFn: () => api.createTagGroup(newGroupName.trim()),
+    onSuccess: (g) => {
+      setNewGroupName('')
+      invalidate()
+      toast(`已添加分组「${g.name}」`)
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+  const tgRename = useMutation({
+    mutationFn: (p: { id: number; name: string }) => api.renameTagGroup(p.id, p.name),
+    onSuccess: () => {
+      setTgEdit(null)
+      invalidate()
+      toast('分组已改名，标签同步更新')
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+  const tgDel = useMutation({
+    mutationFn: (id: number) => api.deleteTagGroup(id),
+    onSuccess: (r) => {
+      invalidate()
+      toast(`已删除分组（${r.moved_to_ungrouped} 个标签移入未分组）`)
+    },
+    onError: (e) => toast((e as Error).message),
+  })
+  const tgMove = useMutation({
+    mutationFn: (p: { id: number; dir: 'up' | 'down' }) => api.moveTagGroup(p.id, p.dir),
+    onSuccess: invalidate,
+    onError: (e) => toast((e as Error).message),
+  })
+
   const submitAdd = () => {
     if (newLabel.trim()) addMut.mutate()
   }
@@ -100,17 +195,19 @@ export function ManageModal({ onClose, initialCat }: Props) {
 
   const genres = (genresQ.data ?? []).filter((g) => g.category === cat)
   const catLabel = meta.categories.find((c) => c.key === cat)?.label ?? cat
+  const catsList = catsQ.data ?? []
+  const groupsList = tagGroupsQ.data ?? []
 
-  // 标签分组：meta 定义 → 库中其他组 → 未分组
+  // 标签分组：分组表 → 库中其他组 → 未分组
   const library = tagsQ.data ?? []
   const tagGroupNames = useMemo(() => {
-    const known = [...meta.tag_groups]
+    const known = groupsList.map((g) => g.name)
     const extras = [
       ...new Set(library.map((t) => t.group).filter((g): g is string => !!g && !known.includes(g))),
     ]
     const hasUngrouped = library.some((t) => !t.group)
     return [...known, ...extras, ...(hasUngrouped ? ['未分组'] : [])]
-  }, [meta.tag_groups, library])
+  }, [groupsList, library])
   const kw = tagSearch.trim()
   const groupsWithData = tagGroupNames
     .map((name) => ({
@@ -135,6 +232,9 @@ export function ManageModal({ onClose, initialCat }: Props) {
           </div>
         </div>
         <div className="chips">
+          <button className={'chip' + (tab === 'cats' ? ' on' : '')} onClick={() => setTab('cats')}>
+            🗂️ 主分类
+          </button>
           <button className={'chip' + (tab === 'genres' ? ' on' : '')} onClick={() => setTab('genres')}>
             🎨 题材库
           </button>
@@ -142,6 +242,95 @@ export function ManageModal({ onClose, initialCat }: Props) {
             🏷️ 标签库
           </button>
         </div>
+
+        {tab === 'cats' && (
+          <>
+            <p className="none">左侧收藏墙的主分类，可以自由增删改和排序；删除前需清空该分类下的收藏与题材。</p>
+            <div className="manage-list">
+              {catsList.map((c, i) => (
+                <div className="manage-row" key={c.key}>
+                  <i className="tdot" style={{ background: c.color }} />
+                  {cEdit === c.key ? (
+                    <>
+                      <input
+                        className="mi-edit"
+                        style={{ width: '5em', textAlign: 'center' }}
+                        value={cEmoji}
+                        onChange={(e) => setCEmoji(e.target.value)}
+                        placeholder="emoji"
+                        autoFocus
+                      />
+                      <input
+                        className="mi-edit"
+                        value={cLabel}
+                        onChange={(e) => setCLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') catUpdate.mutate({ key: c.key })
+                          if (e.key === 'Escape') setCEdit(null)
+                        }}
+                        placeholder="名称"
+                      />
+                      <input
+                        className="mi-edit"
+                        style={{ width: '6em' }}
+                        value={cColor}
+                        onChange={(e) => setCColor(e.target.value)}
+                        placeholder="#颜色"
+                      />
+                    </>
+                  ) : (
+                    <b className="mi-label">
+                      {c.emoji} {c.label}
+                      {c.note && <small className="mi-note">{c.note}</small>}
+                    </b>
+                  )}
+                  <span className="grow" />
+                  {cEdit === c.key ? (
+                    <>
+                      <button className="mini-btn primary" onClick={() => catUpdate.mutate({ key: c.key })}>
+                        保存
+                      </button>
+                      <button className="mini-btn" onClick={() => setCEdit(null)}>
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="mini-btn"
+                        disabled={i === 0}
+                        onClick={() => catMove.mutate({ key: c.key, dir: 'up' })}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="mini-btn"
+                        disabled={i === catsList.length - 1}
+                        onClick={() => catMove.mutate({ key: c.key, dir: 'down' })}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="mini-btn"
+                        onClick={() => {
+                          setCEdit(c.key)
+                          setCLabel(c.label)
+                          setCEmoji(c.emoji)
+                          setCColor(c.color)
+                        }}
+                      >
+                        编辑
+                      </button>
+                      <button className="mini-btn danger" onClick={() => catDel.mutate(c.key)}>
+                        删除
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {tab === 'genres' && (
           <>
@@ -219,6 +408,92 @@ export function ManageModal({ onClose, initialCat }: Props) {
 
         {tab === 'tags' && (
           <>
+            <button className="tg-toggle" onClick={() => setGroupsOpen((v) => !v)}>
+              {groupsOpen ? '▾' : '▸'} 分组管理（{groupsList.length} 组）
+            </button>
+            {groupsOpen && (
+              <div className="manage-list tg-box">
+                {groupsList.map((g, i) => (
+                  <div className="manage-row" key={g.id}>
+                    {tgEdit === g.id ? (
+                      <input
+                        className="mi-edit"
+                        value={tgName}
+                        onChange={(e) => setTgName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') tgRename.mutate({ id: g.id, name: tgName })
+                          if (e.key === 'Escape') setTgEdit(null)
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <b className="mi-label">{g.name}</b>
+                    )}
+                    <span className="mi-usage">{g.tag_count} 标签</span>
+                    <span className="grow" />
+                    {tgEdit === g.id ? (
+                      <>
+                        <button className="mini-btn primary" onClick={() => tgRename.mutate({ id: g.id, name: tgName })}>
+                          保存
+                        </button>
+                        <button className="mini-btn" onClick={() => setTgEdit(null)}>
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="mini-btn"
+                          disabled={i === 0}
+                          onClick={() => tgMove.mutate({ id: g.id, dir: 'up' })}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          className="mini-btn"
+                          disabled={i === groupsList.length - 1}
+                          onClick={() => tgMove.mutate({ id: g.id, dir: 'down' })}
+                        >
+                          ↓
+                        </button>
+                        <button
+                          className="mini-btn"
+                          onClick={() => {
+                            setTgEdit(g.id)
+                            setTgName(g.name)
+                          }}
+                        >
+                          改名
+                        </button>
+                        <button className="mini-btn danger" onClick={() => tgDel.mutate(g.id)}>
+                          删除
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                <div className="manage-row">
+                  <input
+                    className="mi-edit"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newGroupName.trim()) tgCreate.mutate()
+                    }}
+                    placeholder="新分组名，如：口味"
+                  />
+                  <span className="grow" />
+                  <button
+                    className="mini-btn primary"
+                    disabled={!newGroupName.trim() || tgCreate.isPending}
+                    onClick={() => tgCreate.mutate()}
+                  >
+                    添加分组
+                  </button>
+                </div>
+                <p className="none">删除分组会把组内标签移到「未分组」，不会删标签本身。</p>
+              </div>
+            )}
             <input
               className="m-search"
               placeholder="搜索标签…"
@@ -252,9 +527,9 @@ export function ManageModal({ onClose, initialCat }: Props) {
                             title="分组"
                           >
                             <option value="">未分组</option>
-                            {meta.tag_groups.map((g) => (
-                              <option key={g} value={g}>
-                                {g}
+                            {groupsList.map((g) => (
+                              <option key={g.id} value={g.name}>
+                                {g.name}
                               </option>
                             ))}
                           </select>
@@ -302,36 +577,74 @@ export function ManageModal({ onClose, initialCat }: Props) {
           </>
         )}
 
-        <div className="form tight">
-          <label>{tab === 'genres' ? `给「${catLabel}」添加题材` : '添加新标签'}</label>
-          <div className="add-row">
-            <input
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={onAddKey}
-              placeholder={tab === 'genres' ? '如：无限流' : '如：泪目'}
-              autoFocus
-            />
-            {tab === 'tags' && (
-              <select
-                className="mi-select"
-                value={newTagGroup}
-                onChange={(e) => setNewTagGroup(e.target.value)}
-                title="新标签的分组"
+        {tab === 'cats' ? (
+          <div className="form tight">
+            <label>添加主分类</label>
+            <div className="add-row">
+              <input
+                className="mi-edit"
+                style={{ width: '4.5em', textAlign: 'center' }}
+                value={newCat.emoji}
+                onChange={(e) => setNewCat((f) => ({ ...f, emoji: e.target.value }))}
+                placeholder="emoji"
+              />
+              <input
+                value={newCat.label}
+                onChange={(e) => setNewCat((f) => ({ ...f, label: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newCat.label.trim()) catCreate.mutate()
+                }}
+                placeholder="名称，如：播客"
+                autoFocus
+              />
+              <input
+                className="mi-edit"
+                style={{ width: '6em' }}
+                value={newCat.color}
+                onChange={(e) => setNewCat((f) => ({ ...f, color: e.target.value }))}
+                placeholder="#颜色"
+              />
+              <button
+                className="btn primary sm"
+                onClick={() => catCreate.mutate()}
+                disabled={!newCat.label.trim() || catCreate.isPending}
               >
-                <option value="">未分组</option>
-                {meta.tag_groups.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button className="btn primary sm" onClick={submitAdd} disabled={!newLabel.trim() || addMut.isPending}>
-              添加
-            </button>
+                添加
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="form tight">
+            <label>{tab === 'genres' ? `给「${catLabel}」添加题材` : '添加新标签'}</label>
+            <div className="add-row">
+              <input
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                onKeyDown={onAddKey}
+                placeholder={tab === 'genres' ? '如：无限流' : '如：泪目'}
+                autoFocus
+              />
+              {tab === 'tags' && (
+                <select
+                  className="mi-select"
+                  value={newTagGroup}
+                  onChange={(e) => setNewTagGroup(e.target.value)}
+                  title="新标签的分组"
+                >
+                  <option value="">未分组</option>
+                  {groupsList.map((g) => (
+                    <option key={g.id} value={g.name}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button className="btn primary sm" onClick={submitAdd} disabled={!newLabel.trim() || addMut.isPending}>
+                添加
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="m-acts">
           <button className="btn primary" onClick={onClose}>

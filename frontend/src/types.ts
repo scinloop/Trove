@@ -1,15 +1,5 @@
-export type Category =
-  | 'comic'
-  | 'novel'
-  | 'anime'
-  | 'character'
-  | 'video'
-  | 'game'
-  | 'movie'
-  | 'website'
-  | 'clothing'
-  | 'shortdrama'
-export type SubType = string // genres 表里的 key（题材库可维护，不再收窄为固定联合）
+export type Category = string // 主分类 key（categories 表，可自主增删）
+export type SubType = string // genres 表里的 key（题材库可维护）
 export type WorkStatus = 'upcoming' | 'ongoing' | 'finished'
 export type AcquireStatus = 'owned' | 'not_owned' | 'skip' | 'teaser'
 export type Status = 'wish' | 'doing' | 'done'
@@ -72,9 +62,25 @@ export interface AcquireStatusMeta {
 export interface Tag {
   id: number
   label: string
-  group: string | null // 分组：服装/体型/玩法/行为/角色…，null = 未分组
+  group: string | null // 分组名（tag_groups 表可维护），null = 未分组
   color: string
   usage: number
+}
+
+export interface CategoryRow {
+  key: string
+  label: string
+  emoji: string
+  color: string
+  note: string | null
+  sort_order: number
+}
+
+export interface TagGroupRow {
+  id: number
+  name: string
+  sort_order: number
+  tag_count: number
 }
 
 export interface ChapterMeta {

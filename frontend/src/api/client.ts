@@ -1,4 +1,4 @@
-import type { BookSearch, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemInput, Meta, Stats, Tag, Task, TaskInput } from '../types'
+import type { BookSearch, CategoryRow, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemInput, Meta, Stats, Tag, TagGroupRow, Task, TaskInput } from '../types'
 
 const BASE = '/api'
 
@@ -73,6 +73,27 @@ export const api = {
   renameTag: (id: number, label: string, group: string | null = null) =>
     http<Tag>(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify({ label, group }) }),
   deleteTag: (id: number) => http<void>(`/tags/${id}`, { method: 'DELETE' }),
+
+  // ---- categories（主分类库） ----
+  categories: () => http<CategoryRow[]>('/categories'),
+  createCategory: (data: { label: string; emoji?: string; color?: string; note?: string }) =>
+    http<CategoryRow>('/categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateCategory: (key: string, data: { label?: string; emoji?: string; color?: string; note?: string }) =>
+    http<CategoryRow>(`/categories/${key}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  moveCategory: (key: string, dir: 'up' | 'down') =>
+    http<{ ok: boolean }>(`/categories/${key}/move?dir=${dir}`, { method: 'POST' }),
+  deleteCategory: (key: string) => http<void>(`/categories/${key}`, { method: 'DELETE' }),
+
+  // ---- tag-groups（标签大分组） ----
+  tagGroups: () => http<TagGroupRow[]>('/tag-groups'),
+  createTagGroup: (name: string) =>
+    http<TagGroupRow>('/tag-groups', { method: 'POST', body: JSON.stringify({ name }) }),
+  renameTagGroup: (id: number, name: string) =>
+    http<TagGroupRow>(`/tag-groups/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  deleteTagGroup: (id: number) =>
+    http<{ ok: boolean; moved_to_ungrouped: number }>(`/tag-groups/${id}`, { method: 'DELETE' }),
+  moveTagGroup: (id: number, dir: 'up' | 'down') =>
+    http<{ ok: boolean }>(`/tag-groups/${id}/move?dir=${dir}`, { method: 'POST' }),
 
   // ---- chapters（小说章节） ----
   chapters: (itemId: number) => http<ChapterMeta[]>(`/items/${itemId}/chapters`),
