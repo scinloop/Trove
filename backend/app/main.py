@@ -18,7 +18,7 @@ from app.constants import CATEGORIES, TAG_GROUPS
 from app.database import Base, SessionLocal, engine
 from app.models import Category, Item, TagGroup
 from app.routers import categories, chapters, favicon, genres, items, meta, stats, tags, tasks, uploads
-from app.seed import ensure_genres, ensure_tags_from_items, seed_if_empty, seed_tasks_if_empty
+from app.seed import ensure_genres, seed_if_empty, seed_tasks_if_empty
 
 
 async def seed_categories(session) -> None:
@@ -67,10 +67,9 @@ async def lifespan(_: FastAPI):
             it.sub_types = [it.sub_type] if it.sub_type else []
         if rows:
             await session.commit()
-        await ensure_genres(session)          # 题材库默认数据（幂等）
-        await seed_categories(session)        # 主分类/标签分组表种子（幂等）
+        await ensure_genres(session)          # 题材库种子（表空才写，之后完全交给用户管理）
+        await seed_categories(session)        # 主分类/标签分组表种子（表空才写，幂等）
         await seed_if_empty()
-        await ensure_tags_from_items(session)  # 存量标签补进标签库（幂等）
         await seed_tasks_if_empty()
     yield
 

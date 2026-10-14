@@ -53,14 +53,12 @@ async def create_tables() -> None:
 
 
 async def ensure_genres(session: AsyncSession) -> int:
-    """幂等补齐默认题材（按 key 判断），老库也能获得题材库。"""
-    rows = (await session.execute(select(Genre))).scalars().all()
-    existing = {(g.category, g.key) for g in rows}
-    added = 0
+    """题材库为空时写入默认题材（幂等）；非空即交给用户自主管理，不补不覆盖。"""
+    count = (await session.execute(select(func.count()).select_from(Genre))).scalar_one()
+    if count:
+        return 0
     for category, genres in GENRE_SEEDS.items():
         for i, (key, label, color) in enumerate(genres):
-            if (category, key) in existing:
-                continue
             session.add(
                 Genre(
                     category=category,
@@ -70,10 +68,9 @@ async def ensure_genres(session: AsyncSession) -> int:
                     sort_order=i,
                 )
             )
-            added += 1
-    if added:
-        await session.commit()
-    return added
+    await session.commit()
+    total = sum(len(g) for g in GENRE_SEEDS.values())
+    return total
 
 
 async def ensure_tags_from_items(session: AsyncSession) -> int:
