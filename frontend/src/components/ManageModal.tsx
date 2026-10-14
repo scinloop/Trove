@@ -122,15 +122,14 @@ export function ManageModal({ onClose }: Props) {
     .filter((g) => g.tags.length > 0)
 
   return (
-    <div
-      className="overlay show"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    // 管理弹层：点遮罩不关闭（含增删改操作，防止误触中断），用「关闭」按钮退出
+    <div className="overlay show">
       <div className="modal modal-lg">
         <div className="m-head">
           <h2>题材与标签管理</h2>
+          <button className="m-close" onClick={onClose} aria-label="关闭">
+            ✕
+          </button>
         </div>
         <div className="chips">
           <button className={'chip' + (tab === 'genres' ? ' on' : '')} onClick={() => setTab('genres')}>

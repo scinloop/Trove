@@ -60,12 +60,8 @@ export function TaskForm({ task, onClose }: Props) {
   }
 
   return (
-    <div
-      className="overlay show"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    // 表单弹层：点遮罩不关闭（防止误触丢内容），用「关闭」按钮退出
+    <div className="overlay show">
       <div className="modal">
         <div className="m-head">
           <h2>{task ? '编辑任务' : '添加任务'}</h2>

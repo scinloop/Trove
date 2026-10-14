@@ -121,15 +121,14 @@ export function ChapterManager({ item, onClose }: Props) {
   }
 
   return (
-    <div
-      className="overlay show"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    // 管理弹层：点遮罩不关闭（含导入/编辑操作，防止误触中断），用「关闭」按钮退出
+    <div className="overlay show">
       <div className="modal modal-lg">
         <div className="m-head">
           <h2>章节管理 · {item.title}</h2>
+          <button className="m-close" onClick={onClose} aria-label="关闭">
+            ✕
+          </button>
         </div>
         <div className="chips sub">
           <button className="chip sm" onClick={() => fileRef.current?.click()} disabled={busy}>

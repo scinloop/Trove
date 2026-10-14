@@ -640,10 +640,38 @@ select {
   margin-bottom: 14px;
 }
 
+.m-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .m-head h2 {
   margin: 0;
   font-size: 18px;
   letter-spacing: -0.3px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 弹层头部右上角关闭按钮（遮罩不可点的表单/管理弹层专用出口） */
+.m-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.m-close:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .m-badges {

@@ -125,12 +125,8 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
   const genreLabel = form.category === 'character' ? '角色类型' : form.category === 'comic' ? '漫画类型' : '题材'
 
   return (
-    <div
-      className="overlay show"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    // 表单弹层：点遮罩不关闭（防止误触丢内容），用「关闭」按钮退出
+    <div className="overlay show">
       <div className="modal">
         <div className="m-head">
           <h2>{item ? '编辑收藏' : '添加收藏'}</h2>
