@@ -11,6 +11,7 @@ import { TaskForm } from './components/TaskForm'
 import { TaskModal } from './components/TaskModal'
 import { ToastProvider } from './components/Toast'
 import { Topbar } from './components/Topbar'
+import { useFilters } from './hooks/useFilters'
 import { ReaderPage } from './pages/ReaderPage'
 import { SitesPage } from './pages/SitesPage'
 import { StatsPage } from './pages/StatsPage'
@@ -36,6 +37,7 @@ export default function App() {
   const [chapterManager, setChapterManager] = useState<Item | null>(null)
   const nav = useNavigate()
   const location = useLocation()
+  const { cat: wallCat } = useFilters()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -44,7 +46,14 @@ export default function App() {
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
-  // 添加按钮跟随页面：任务页添加任务，收藏墙添加收藏
+  // 添加按钮跟随页面：任务页添加任务；其余按页面/筛选上下文预选分类
+  // （网站栏 → 网站；收藏墙停在某个分类筛选 → 该分类；否则默认动漫）
+  const addPreset =
+    location.pathname.startsWith('/sites')
+      ? 'website'
+      : location.pathname === '/' && wallCat !== 'all'
+        ? wallCat
+        : undefined
   const onAdd = () => {
     if (location.pathname.startsWith('/tasks')) setFormTask(null)
     else setFormItem(null)
@@ -108,7 +117,7 @@ export default function App() {
           <ItemForm
             item={formItem}
             onClose={() => setFormItem(undefined)}
-            presetCategory={location.pathname.startsWith('/sites') ? 'website' : undefined}
+            presetCategory={addPreset}
           />
         )}
         {taskDetail && (
