@@ -402,6 +402,13 @@ select {
   margin-top: 6px;
 }
 
+/* 换行版：分类多时全部可见（弹窗等窄容器里横滑发现性差） */
+.chips.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  padding-bottom: 0;
+}
+
 .chip {
   flex: none;
   padding: 7px 13px;

@@ -20,7 +20,7 @@ export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; on
   return (
     <div className="view">
       <h2 className="v-title">🌐 网站栏</h2>
-      <div className="chips sub">
+      <div className="chips sub wrap">
         <button className={'chip' + (sub === 'all' ? ' on' : '')} onClick={() => setSub('all')}>
           ✨ 全部
         </button>

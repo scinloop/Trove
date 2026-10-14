@@ -334,7 +334,7 @@ export function ManageModal({ onClose, initialCat }: Props) {
 
         {tab === 'genres' && (
           <>
-            <div className="chips sub">
+            <div className="chips sub wrap">
               {meta.categories.map((c) => (
                 <button
                   key={c.key}
