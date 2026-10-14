@@ -6,7 +6,7 @@ import { faviconUrl, hostOf } from '../lib/labels'
 import type { Item } from '../types'
 
 /** 网站栏：网址收藏专用页（favicon 自动解析 + 自定义分类筛选） */
-export function SitesPage({ onOpen }: { onOpen: (it: Item) => void }) {
+export function SitesPage({ onOpen, onManage }: { onOpen: (it: Item) => void; onManage: () => void }) {
   const meta = useMeta()
   const [sub, setSub] = useState('all')
 
@@ -29,6 +29,9 @@ export function SitesPage({ onOpen }: { onOpen: (it: Item) => void }) {
             {g.label}
           </button>
         ))}
+        <button className="chip sm" onClick={onManage} title="添加 / 编辑分类">
+          ⚙️ 管理分类
+        </button>
       </div>
       <p className="count">共 {sites.length} 个网站</p>
       {list.isError ? (

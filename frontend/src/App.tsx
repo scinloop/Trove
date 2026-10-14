@@ -31,6 +31,8 @@ export default function App() {
   const [formTask, setFormTask] = useState<Task | null | undefined>(undefined)
   const [meOpen, setMeOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
+  // 管理弹层打开时预选的分类（网站栏进入 → website，其余默认小说）
+  const [manageCat, setManageCat] = useState<string | undefined>(undefined)
   const [chapterManager, setChapterManager] = useState<Item | null>(null)
   const nav = useNavigate()
   const location = useLocation()
@@ -67,7 +69,18 @@ export default function App() {
             />
             <Routes>
               <Route path="/" element={<WallPage onOpen={setDetail} />} />
-              <Route path="/sites" element={<SitesPage onOpen={setDetail} />} />
+              <Route
+                path="/sites"
+                element={
+                  <SitesPage
+                    onOpen={setDetail}
+                    onManage={() => {
+                      setManageCat('website')
+                      setManageOpen(true)
+                    }}
+                  />
+                }
+              />
               <Route path="/tasks" element={<TasksPage onOpen={setTaskDetail} />} />
               <Route path="/stats" element={<StatsPage onOpen={setDetail} />} />
               <Route path="/read/:id" element={<ReaderPage />} />
@@ -121,12 +134,13 @@ export default function App() {
             onToggleTheme={toggleTheme}
             onManage={() => {
               setMeOpen(false)
+              setManageCat(undefined)
               setManageOpen(true)
             }}
             onClose={() => setMeOpen(false)}
           />
         )}
-        {manageOpen && <ManageModal onClose={() => setManageOpen(false)} />}
+        {manageOpen && <ManageModal onClose={() => setManageOpen(false)} initialCat={manageCat} />}
       </div>
     </ToastProvider>
   )

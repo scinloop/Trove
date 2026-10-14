@@ -6,15 +6,16 @@ import { useToast } from './Toast'
 
 interface Props {
   onClose: () => void
+  initialCat?: string // 打开时预选的分类（如从网站栏进入 → website）
 }
 
-/** 题材库 + 标签库 管理弹层（入口：我的 → 题材与标签管理） */
-export function ManageModal({ onClose }: Props) {
+/** 题材库 + 标签库 管理弹层（入口：我的 → 题材与标签管理 / 网站栏 → 管理分类） */
+export function ManageModal({ onClose, initialCat }: Props) {
   const meta = useMeta()
   const toast = useToast()
   const qc = useQueryClient()
   const [tab, setTab] = useState<'genres' | 'tags'>('genres')
-  const [cat, setCat] = useState('novel')
+  const [cat, setCat] = useState(initialCat ?? 'novel')
   const [newLabel, setNewLabel] = useState('')
   const [newTagGroup, setNewTagGroup] = useState('') // '' = 未分组
   const [gEdit, setGEdit] = useState<number | null>(null)
