@@ -26,6 +26,14 @@ class Item(Base):
     note: Mapped[str | None] = mapped_column(Text)
     emoji: Mapped[str | None] = mapped_column(String(16))
     image_url: Mapped[str | None] = mapped_column(String(500))     # /static/uploads/...（服装等图片展示）
+    # ---- Bangumi 刮削 ----
+    bgm_id: Mapped[int | None] = mapped_column(Integer, index=True)  # Bangumi 条目/角色 ID
+    bgm_type: Mapped[int | None] = mapped_column(Integer)           # 1书籍 2动画 3音乐 4游戏 6三次元；角色用 0 表示角色条目
+    cover_url: Mapped[str | None] = mapped_column(String(500))      # 本地封面 /static/uploads/covers/xxx.jpg
+    bangumi: Mapped[dict | None] = mapped_column(JSON)              # 刮削快照（离线可用）
+    # ---- 进度（同步回 bgm） ----
+    ep_progress: Mapped[int | None] = mapped_column(Integer)        # 已看集数/话数
+    vol_progress: Mapped[int | None] = mapped_column(Integer)       # 已看卷数
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 

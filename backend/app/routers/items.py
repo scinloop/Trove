@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.database import get_session
-from app.schemas import ItemCreate, ItemOut, ItemUpdate
+from app.schemas import ItemCreate, ItemDetail, ItemOut, ItemUpdate
 
 router = APIRouter(tags=["items"])
 
@@ -40,12 +40,12 @@ async def create_item(data: ItemCreate, session: AsyncSession = Depends(get_sess
     return ItemOut.model_validate(item)
 
 
-@router.get("/items/{item_id}", response_model=ItemOut)
-async def get_item(item_id: int, session: AsyncSession = Depends(get_session)) -> ItemOut:
+@router.get("/items/{item_id}", response_model=ItemDetail)
+async def get_item(item_id: int, session: AsyncSession = Depends(get_session)) -> ItemDetail:
     item = await crud.get_item(session, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="item not found")
-    return ItemOut.model_validate(item)
+    return ItemDetail.model_validate(item)
 
 
 @router.patch("/items/{item_id}", response_model=ItemOut)

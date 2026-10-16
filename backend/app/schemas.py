@@ -26,6 +26,9 @@ class ItemBase(BaseModel):
     note: str | None = None
     emoji: str | None = Field(default=None, max_length=16)
     image_url: str | None = Field(default=None, max_length=500)
+    # 刮削源：从 Bangumi 搜索选中条目时带上（服务端据此抓快照 + 下封面）
+    bgm_id: int | None = None
+    bgm_type: int | None = None
 
     @model_validator(mode="after")
     def _validate(self) -> "ItemBase":
@@ -73,6 +76,11 @@ class ItemUpdate(BaseModel):
     note: str | None = None
     emoji: str | None = Field(default=None, max_length=16)
     image_url: str | None = Field(default=None, max_length=500)
+    bgm_id: int | None = None
+    bgm_type: int | None = None
+    # 追番进度（同步回 Bangumi 用）
+    ep_progress: int | None = Field(default=None, ge=0, le=100_000)
+    vol_progress: int | None = Field(default=None, ge=0, le=100_000)
 
     @model_validator(mode="after")
     def _validate(self) -> "ItemUpdate":
@@ -103,8 +111,20 @@ class ItemOut(BaseModel):
     note: str | None
     emoji: str | None
     image_url: str | None
+    # Bangumi 刮削（列表只带轻量字段；完整快照见 ItemDetail）
+    bgm_id: int | None = None
+    bgm_type: int | None = None
+    cover_url: str | None = None
+    ep_progress: int | None = None
+    vol_progress: int | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class ItemDetail(ItemOut):
+    """详情：附带完整刮削快照（列表接口不返回，避免传输膨胀）。"""
+
+    bangumi: dict | None = None
 
 
 # ---------------- categories（主分类库） ----------------

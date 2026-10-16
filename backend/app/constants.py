@@ -5,12 +5,12 @@ Order of CATEGORIES is the sidebar / chips / charts order.
 """
 CATEGORIES: list[dict] = [
     {"key": "comic", "label": "漫画", "emoji": "📚", "color": "#f97316", "note": None},
-    {"key": "novel", "label": "小说", "emoji": "📖", "color": "#14b8a6", "note": None},
     {"key": "anime", "label": "动漫", "emoji": "📺", "color": "#8b5cf6", "note": None},
-    {"key": "character", "label": "角色", "emoji": "🎴", "color": "#ec4899", "note": "游戏人物为主"},
-    {"key": "video", "label": "视频", "emoji": "🎞️", "color": "#0ea5e9", "note": None},
     {"key": "game", "label": "游戏", "emoji": "🎮", "color": "#6366f1", "note": None},
+    {"key": "character", "label": "角色", "emoji": "🎴", "color": "#ec4899", "note": "游戏人物为主"},
     {"key": "movie", "label": "电影", "emoji": "🎬", "color": "#f43f5e", "note": None},
+    {"key": "novel", "label": "小说", "emoji": "📖", "color": "#14b8a6", "note": None},
+    {"key": "video", "label": "视频", "emoji": "🎞️", "color": "#0ea5e9", "note": None},
     {"key": "website", "label": "网站", "emoji": "🌐", "color": "#2563eb", "note": "网址收藏"},
     {"key": "clothing", "label": "服装", "emoji": "👗", "color": "#f59e0b", "note": None},
     {"key": "shortdrama", "label": "短剧", "emoji": "📱", "color": "#10b981", "note": None},

@@ -1,0 +1,274 @@
+"""Bangumi 代理测试：httpx.MockTransport 拦截全部出站请求，测试不联网。
+
+覆盖：官方 UA 规范、PAT 鉴权头、分类→类型映射、R18 默认包含语义、
+归一化（infobox 多值扁平化 / 评分直方图 / 收藏分布）、角色全量、错误码映射。
+"""
+import json
+
+import httpx
+import pytest
+
+from app.config import settings
+from app.routers import bangumi as bgm
+
+SUBJECT_12 = {
+    "id": 12,
+    "type": 2,
+    "name": "ちょびっツ",
+    "name_cn": "人形电脑天使心",
+    "summary": "在不久的将来，电子技术飞速发展……",
+    "date": "2002-04-02",
+    "platform": "TV",
+    "eps": 27,
+    "volumes": 0,
+    "series": False,
+    "nsfw": False,
+    "images": {
+        "large": "https://lain.bgm.tv/l.jpg",
+        "common": "https://lain.bgm.tv/c.jpg",
+        "grid": "https://lain.bgm.tv/g.jpg",
+    },
+    "meta_tags": ["科幻", "TV", "恋爱"],
+    "rating": {"rank": 945, "total": 5541, "score": 7.5, "count": {"1": 10, "10": 500}},
+    "collection": {"wish": 4279, "collect": 8945, "doing": 933, "on_hold": 1065, "dropped": 286},
+    "tags": [{"name": "CLAMP", "count": 1344}, {"name": "TV", "count": 662}],
+    "infobox": [
+        {"key": "中文名", "value": "人形电脑天使心"},
+        {"key": "别名", "value": [{"v": "Chobits"}, {"v": "电脑天使"}]},
+        {"key": "话数", "value": "27"},
+        {"key": "空值项", "value": ""},
+    ],
+}
+
+# 25 个角色：用于验证「全量获取、不截断」
+CHARACTERS_12 = [
+    {
+        "id": i,
+        "name": f"角色{i}",
+        "relation": "主角" if i == 1 else "配角",
+        "images": {"grid": f"https://lain.bgm.tv/crt{i}.jpg"},
+        "actors": [{"id": 100 + i, "name": f"声优{i}", "images": {"grid": "https://lain.bgm.tv/a.jpg"}}],
+    }
+    for i in range(1, 26)
+]
+
+RELATED = [
+    {
+        "id": 497,
+        "type": 1,
+        "name": "ちょびっツ",
+        "name_cn": "人形电脑天使心",
+        "relation": "漫画",
+        "images": {"common": "https://lain.bgm.tv/r.jpg"},
+    }
+]
+
+EPISODES = {
+    "data": [
+        {"id": 1, "sort": 1, "name": "ep1", "name_cn": "第一话", "airdate": "2002-04-03", "type": 0}
+    ],
+    "total": 27,
+}
+
+ME = {"id": 1247155, "username": "1247155", "nickname": "sciJ", "avatar": {"large": "https://lain.bgm.tv/av.jpg"}}
+
+ROUTES: dict[str, object] = {
+    "/v0/me": ME,
+    "/v0/subjects/12": SUBJECT_12,
+    "/v0/subjects/12/characters": CHARACTERS_12,
+    "/v0/subjects/12/subjects": RELATED,
+    "/v0/episodes": EPISODES,
+    "/v0/episodes/555": {**EPISODES["data"][0], "desc": "单集简介", "duration": "24m"},
+    "/v0/characters/179271": {
+        "id": 179271,
+        "name": "セイバー",
+        "gender": "女",
+        "birthday": "1月1日",
+        "images": {"grid": "https://lain.bgm.tv/saber.jpg"},
+        "infobox": [{"key": "身高", "value": "154cm"}],
+    },
+    "/v0/characters/179271/subjects": RELATED,
+    "/v0/search/subjects": {"data": [SUBJECT_12], "total": 474},
+    "/v0/search/characters": {
+        "data": [{"id": 179271, "name": "セイバー", "type": 1, "images": {"grid": "https://lain.bgm.tv/saber.jpg"}}],
+        "total": 10,
+    },
+}
+
+
+@pytest.fixture(autouse=True)
+def bgm_calls(monkeypatch):
+    """拦截所有 httpx 出站请求并记录调用细节。
+
+    autouse：确保任何测试都不会真的联网（忘写 fixture 参数也会被拦截）。
+    """
+    calls: list[dict] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(
+            {
+                "method": req.method,
+                "path": req.url.path,
+                "query": dict(req.url.params),
+                "ua": req.headers.get("user-agent"),
+                "auth": req.headers.get("authorization"),
+                "body": json.loads(req.content) if req.content else None,
+            }
+        )
+        if req.url.path == "/v0/boom":
+            return httpx.Response(500, json={"error": "boom"})
+        if req.url.path in ROUTES:
+            return httpx.Response(200, json=ROUTES[req.url.path])
+        return httpx.Response(404, json={"error": "not found"})
+
+    monkeypatch.setattr(settings, "bgm_min_interval", 0.0)
+    monkeypatch.setattr(settings, "bgm_token", "test-token")
+    # 与真实实现一致：client 带官方 UA + Bearer（顺序在 monkeypatch 之后）
+    client = httpx.AsyncClient(
+        base_url="https://api.bgm.tv",
+        transport=httpx.MockTransport(handler),
+        headers=bgm._headers(),
+    )
+
+    async def fake_client() -> httpx.AsyncClient:
+        return client
+
+    monkeypatch.setattr(bgm, "_client_get", fake_client)
+    return calls
+
+
+# ---------------- 搜索与类型映射 ----------------
+
+
+async def test_search_anime_type_and_r18_default(client, bgm_calls):
+    r = await client.get("/api/bangumi/search", params={"kw": "魔法", "category": "anime"})
+    assert r.status_code == 200
+    assert bgm_calls[0]["path"] == "/v0/search/subjects"
+    body = bgm_calls[0]["body"]
+    assert body["filter"]["type"] == [2]
+    # 不传 nsfw => 已授权时返回含 R18 的全部结果（官方语义）
+    assert "nsfw" not in body["filter"]
+    item = r.json()["items"][0]
+    assert item["bgm_id"] == 12 and item["name_cn"] == "人形电脑天使心"
+    assert item["score"] == 7.5 and item["rank"] == 945
+    assert item["image"] == "https://lain.bgm.tv/c.jpg"
+
+
+async def test_search_movie_only_live_action(client, bgm_calls):
+    """动画电影属动画(type 2)：电影分类只搜三次元(type 6)。"""
+    await client.get("/api/bangumi/search", params={"kw": "星际", "category": "movie"})
+    assert bgm_calls[0]["body"]["filter"]["type"] == [6]
+
+
+async def test_search_comic_and_novel_are_books(client, bgm_calls):
+    for cat in ("comic", "novel"):
+        await client.get("/api/bangumi/search", params={"kw": "测试", "category": cat})
+    assert [c["body"]["filter"]["type"] for c in bgm_calls] == [[1], [1]]
+
+
+async def test_search_character_uses_character_api(client, bgm_calls):
+    r = await client.get("/api/bangumi/search", params={"kw": "saber", "category": "character"})
+    assert bgm_calls[0]["path"] == "/v0/search/characters"
+    assert bgm_calls[0]["body"]["filter"]["nsfw"] == "include"
+    assert r.json()["source"] == "character"
+    assert r.json()["items"][0]["bgm_id"] == 179271
+
+
+async def test_search_rejects_unsupported_category(client, bgm_calls):
+    r = await client.get("/api/bangumi/search", params={"kw": "x", "category": "website"})
+    assert r.status_code == 422
+    assert bgm_calls == []  # 不发无谓请求
+
+
+# ---------------- 官方 UA 规范与鉴权 ----------------
+
+
+async def test_official_user_agent_and_bearer(client, bgm_calls):
+    await client.get("/api/bangumi/search", params={"kw": "魔法", "category": "anime"})
+    ua = bgm_calls[0]["ua"]
+    assert ua == settings.bgm_ua
+    # 开发者ID/应用名/版本 (项目主页)
+    assert ua.startswith("scinloop/Trove/")
+    assert "github.com/scinloop/Trove" in ua
+    assert bgm_calls[0]["auth"] == "Bearer test-token"
+
+
+# ---------------- 详情归一化 ----------------
+
+
+async def test_subject_detail_normalization(client):
+    r = await client.get("/api/bangumi/subject/12")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["eps"] == 27 and d["platform"] == "TV"
+    assert d["rating_count"] == {"1": 10, "10": 500}
+    assert d["collection"]["collect"] == 8945
+    assert d["meta_tags"] == ["科幻", "TV", "恋爱"]
+    info = {i["key"]: i["value"] for i in d["infobox"]}
+    assert info["别名"] == "Chobits / 电脑天使"  # 多值项扁平化
+    assert "空值项" not in info  # 空值不下发
+    assert d["tags"][0] == {"name": "CLAMP", "count": 1344}
+
+
+async def test_characters_are_full_not_truncated(client):
+    r = await client.get("/api/bangumi/subject/12/characters")
+    body = r.json()
+    assert body["total"] == 25
+    assert len(body["characters"]) == 25
+    first = body["characters"][0]
+    assert first["relation"] == "主角"
+    assert first["actors"][0]["name"] == "声优1"
+
+
+async def test_related_and_episodes(client, bgm_calls):
+    rel = await client.get("/api/bangumi/subject/12/related")
+    assert rel.json()["related"][0]["relation"] == "漫画"
+
+    eps = await client.get("/api/bangumi/subject/12/episodes")
+    body = eps.json()
+    assert body["total"] == 27
+    assert body["episodes"][0]["name_cn"] == "第一话"
+    assert "desc" not in body["episodes"][0]  # 列表精简，简介走单集接口
+    assert bgm_calls[-1]["query"]["subject_id"] == "12"
+
+
+async def test_episode_and_character_detail(client):
+    ep = await client.get("/api/bangumi/episode/555")
+    assert ep.json()["desc"] == "单集简介" and ep.json()["duration"] == "24m"
+
+    ch = await client.get("/api/bangumi/character/179271")
+    body = ch.json()
+    assert body["gender"] == "女" and body["birthday"] == "1月1日"
+    assert body["subjects"][0]["relation"] == "漫画"  # 该角色出自哪些作品
+
+
+# ---------------- 错误处理与状态 ----------------
+
+
+async def test_status_when_token_missing(client, bgm_calls, monkeypatch):
+    monkeypatch.setattr(settings, "bgm_token", "")
+    r = await client.get("/api/bangumi/status")
+    assert r.json() == {"configured": False, "connected": False, "r18": False}
+    assert bgm_calls == []
+
+
+async def test_status_when_connected(client):
+    r = await client.get("/api/bangumi/status")
+    body = r.json()
+    assert body["connected"] is True
+    assert body["nickname"] == "sciJ"
+    assert body["user_id"] == 1247155
+    assert body["r18"] is True
+
+
+async def test_upstream_404_maps_to_404(client):
+    r = await client.get("/api/bangumi/subject/999")
+    assert r.status_code == 404
+
+
+async def test_upstream_5xx_maps_to_502(bgm_calls):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await bgm.request("GET", "/v0/boom")
+    assert exc.value.status_code == 502

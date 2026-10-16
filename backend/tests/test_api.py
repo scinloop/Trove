@@ -1,4 +1,7 @@
-"""API tests: in-memory SQLite, no lifespan (no real DB file touched)."""
+"""API tests: in-memory SQLite, no lifespan (no real DB file touched).
+
+client / 数据库夹具见 tests/conftest.py。
+"""
 import json
 
 import pytest
@@ -34,40 +37,12 @@ NOVEL_TEXT = """楔子
 天亮时，他回到了起点。"""
 
 
-@pytest.fixture
-async def client():
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        json_serializer=lambda o: json.dumps(o, ensure_ascii=False),
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-
-    async with session_factory() as session:
-        await ensure_genres(session)   # 题材库默认数据
-        await seed_categories(session)  # 主分类/标签分组默认数据
-
-    async def override():
-        async with session_factory() as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
-    app.dependency_overrides.clear()
-    await engine.dispose()
-
-
 async def test_meta(client):
     r = await client.get("/api/meta")
     assert r.status_code == 200
     meta = r.json()
     assert [c["key"] for c in meta["categories"]] == [
-        "comic", "novel", "anime", "character", "video", "game", "movie", "website", "clothing", "shortdrama",
+        "comic", "anime", "game", "character", "movie", "novel", "video", "website", "clothing", "shortdrama",
     ]
     assert meta["status_labels"]["game"]["done"] == "通关"
     assert meta["status_labels"]["clothing"]["done"] == "已收"

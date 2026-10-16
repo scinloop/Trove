@@ -17,7 +17,19 @@ from app.config import BASE_DIR, settings
 from app.constants import CATEGORIES, TAG_GROUPS
 from app.database import Base, SessionLocal, engine
 from app.models import Category, Item, TagGroup
-from app.routers import categories, chapters, favicon, genres, items, meta, stats, tags, tasks, uploads
+from app.routers import (
+    bangumi,
+    categories,
+    chapters,
+    favicon,
+    genres,
+    items,
+    meta,
+    stats,
+    tags,
+    tasks,
+    uploads,
+)
 from app.seed import ensure_genres, seed_if_empty, seed_tasks_if_empty
 
 
@@ -57,6 +69,20 @@ async def lifespan(_: FastAPI):
                 await conn.execute(text("ALTER TABLE items ADD COLUMN acquire VARCHAR(12)"))
             if "url" not in cols:
                 await conn.execute(text("ALTER TABLE items ADD COLUMN url VARCHAR(500)"))
+            # Bangumi 刮削 + 进度（幂等：仅缺列时补）
+            if "bgm_id" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN bgm_id INTEGER"))
+            if "bgm_type" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN bgm_type INTEGER"))
+            if "cover_url" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN cover_url VARCHAR(500)"))
+            if "bangumi" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN bangumi JSON"))
+            if "ep_progress" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN ep_progress INTEGER"))
+            if "vol_progress" not in cols:
+                await conn.execute(text("ALTER TABLE items ADD COLUMN vol_progress INTEGER"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_items_bgm_id ON items (bgm_id)"))
         tag_cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(tags)"))).fetchall()}
         if tag_cols and "group" not in tag_cols:
             await conn.execute(text('ALTER TABLE tags ADD COLUMN "group" VARCHAR(20)'))
@@ -93,6 +119,7 @@ app.include_router(tags.router, prefix="/api")
 app.include_router(chapters.router, prefix="/api")
 app.include_router(favicon.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(bangumi.router, prefix="/api")
 
 # ---- uploaded images (must be registered before the SPA catch-all) ----
 # URL /static/uploads/<file> -> data/uploads/<file>
