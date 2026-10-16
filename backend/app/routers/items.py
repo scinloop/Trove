@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.database import get_session
+from app.routers import bangumi
 from app.schemas import ItemCreate, ItemDetail, ItemOut, ItemUpdate
 
 router = APIRouter(tags=["items"])
@@ -37,6 +38,8 @@ async def list_items(
 @router.post("/items", response_model=ItemOut, status_code=status.HTTP_201_CREATED)
 async def create_item(data: ItemCreate, session: AsyncSession = Depends(get_session)) -> ItemOut:
     item = await crud.create_item(session, data)
+    if item.bgm_id:  # 绑定了 Bangumi 条目 → 同步刮削档案与封面（失败不影响保存）
+        await bangumi.apply_scrape(session, item)
     return ItemOut.model_validate(item)
 
 
@@ -53,8 +56,30 @@ async def update_item(item_id: int, data: ItemUpdate, session: AsyncSession = De
     item = await crud.get_item(session, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="item not found")
+    prev_bgm_id = item.bgm_id
     updated = await crud.update_item(session, item, data)
+    # 新绑定或首次刮削时才抓取（避免每次编辑都请求 Bangumi）
+    if updated.bgm_id and (updated.bgm_id != prev_bgm_id or not updated.bangumi):
+        await bangumi.apply_scrape(session, updated)
     return ItemOut.model_validate(updated)
+
+
+@router.post("/items/{item_id}/scrape", response_model=ItemDetail)
+async def rescrape_item(
+    item_id: int,
+    with_extras: bool = Query(default=True, description="同时抓取角色阵容/关联条目/剧集"),
+    session: AsyncSession = Depends(get_session),
+) -> ItemDetail:
+    """重新刮削：刷新快照（Bangumi 数据更新或换绑条目后手动触发）。"""
+    item = await crud.get_item(session, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="item not found")
+    if not item.bgm_id:
+        raise HTTPException(status_code=422, detail="该条目未绑定 Bangumi 条目")
+    ok = await bangumi.apply_scrape(session, item, with_extras=with_extras)
+    if not ok:
+        raise HTTPException(status_code=502, detail="刮削失败：Bangumi 不可达或条目不存在")
+    return ItemDetail.model_validate(item)
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

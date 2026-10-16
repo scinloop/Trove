@@ -1,19 +1,23 @@
-"""Bangumi API 代理（https://bangumi.github.io/api/）。
+"""Bangumi API 代理 + 刮削落库（https://bangumi.github.io/api/）。
 
 设计要点：
 - UA 严格遵守官方规范：开发者ID/应用名/版本 (项目主页)，见 config.bgm_ua
 - 官方建议 ≤1 req/s：所有出站请求串行 + 最小间隔节流（bgm_min_interval）
 - PAT 鉴权：带 token 时默认搜索即包含 R18（不传 nsfw 字段）；未授权时该设置被官方忽略
-- 错误统一脱敏（绝不回显 token），网络故障降级为 502 而不是拖垮本地收藏功能
+- 错误统一脱敏（绝不回显 token），网络故障降级为 502 而不是拖垮本地收藏
+- 刮削落库：抓到的档案写进 items.bangumi 快照（离线可用），封面下载到本地
 """
 import asyncio
 import time
+from datetime import datetime
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models import Item
 
 router = APIRouter(tags=["bangumi"])
 
@@ -29,6 +33,20 @@ CATEGORY_TYPES: dict[str, list[int]] = {
     "character": [],  # 角色走 /v0/search/characters
 }
 SCRAPE_CATEGORIES: list[str] = list(CATEGORY_TYPES)
+
+# 角色条目在本地用 bgm_type=0 标记（与官方 SubjectType 区分开）
+TYPE_CHARACTER = 0
+
+DEFAULT_EMOJI: dict[str, str] = {
+    "comic": "📚",
+    "anime": "📺",
+    "game": "🎮",
+    "character": "🎴",
+    "movie": "🎬",
+    "novel": "📖",
+}
+
+MAX_COVER_BYTES = 5 * 1024 * 1024
 
 _client: httpx.AsyncClient | None = None
 _lock = asyncio.Lock()
@@ -108,6 +126,7 @@ def norm_subject(s: dict) -> dict:
 def norm_character(c: dict) -> dict:
     return {
         "bgm_id": c.get("id"),
+        "bgm_type": TYPE_CHARACTER,
         "name": c.get("name") or "",
         "name_cn": c.get("name_cn") or "",
         "relation": c.get("relation") or "",
@@ -155,12 +174,10 @@ def norm_infobox(infobox: list | None) -> list[dict]:
     return out
 
 
-# ---------------- 端点 ----------------
+# ---------------- 抓取（路由与刮削共用） ----------------
 
 
-@router.get("/bangumi/status")
-async def bangumi_status() -> dict:
-    """连接状态：是否配置 token、token 是否有效、账号信息。"""
+async def get_status() -> dict:
     if not settings.bgm_configured:
         return {"configured": False, "connected": False, "r18": False}
     me = await request("GET", "/v0/me")
@@ -176,13 +193,7 @@ async def bangumi_status() -> dict:
     }
 
 
-@router.get("/bangumi/search")
-async def bangumi_search(
-    kw: str = Query(min_length=1, max_length=100),
-    category: str = Query(min_length=2, max_length=20),
-    limit: int = Query(default=12, ge=1, le=30),
-) -> dict:
-    """按分类搜索：作品走 /v0/search/subjects，角色走 /v0/search/characters。"""
+async def search_bangumi(kw: str, category: str, limit: int = 12) -> dict:
     if category == "character":
         data = await request(
             "POST",
@@ -212,9 +223,8 @@ async def bangumi_search(
     }
 
 
-@router.get("/bangumi/subject/{subject_id}")
-async def bangumi_subject(subject_id: int) -> dict:
-    """条目完整档案（刮削主体）：含 rating 直方图 / collection 分布 / infobox。"""
+async def get_subject(subject_id: int) -> dict:
+    """条目完整档案：含 rating 直方图 / collection 分布 / infobox。"""
     s = await request("GET", f"/v0/subjects/{subject_id}")
     base = norm_subject(s)
     rating = s.get("rating") or {}
@@ -225,9 +235,6 @@ async def bangumi_subject(subject_id: int) -> dict:
             "series": bool(s.get("series")),
             "meta_tags": s.get("meta_tags") or [],
             "infobox": norm_infobox(s.get("infobox")),
-            "score": rating.get("score"),
-            "rank": rating.get("rank"),
-            "rating_total": rating.get("total"),
             "rating_count": rating.get("count") or {},
             "collection": s.get("collection") or {},
             "tags": [
@@ -241,16 +248,14 @@ async def bangumi_subject(subject_id: int) -> dict:
     return base
 
 
-@router.get("/bangumi/subject/{subject_id}/characters")
-async def bangumi_characters(subject_id: int) -> dict:
+async def get_characters(subject_id: int) -> dict:
     """角色阵容：全量获取（含 CV）。"""
     data = await request("GET", f"/v0/subjects/{subject_id}/characters")
     chars = [norm_character(c) for c in (data if isinstance(data, list) else [])]
     return {"characters": chars, "total": len(chars)}
 
 
-@router.get("/bangumi/subject/{subject_id}/related")
-async def bangumi_related(subject_id: int) -> dict:
+async def get_related(subject_id: int) -> dict:
     """关联条目：前作/续作/改编等。"""
     data = await request("GET", f"/v0/subjects/{subject_id}/subjects")
     items = []
@@ -261,13 +266,7 @@ async def bangumi_related(subject_id: int) -> dict:
     return {"related": items, "total": len(items)}
 
 
-@router.get("/bangumi/subject/{subject_id}/episodes")
-async def bangumi_episodes(
-    subject_id: int,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=200),
-) -> dict:
-    """剧集列表（精简字段，支持翻页）。"""
+async def get_episodes(subject_id: int, offset: int = 0, limit: int = 100) -> dict:
     data = await request(
         "GET", "/v0/episodes", params={"subject_id": subject_id, "offset": offset, "limit": limit}
     )
@@ -279,18 +278,21 @@ async def bangumi_episodes(
     }
 
 
-@router.get("/bangumi/episode/{episode_id}")
-async def bangumi_episode(episode_id: int) -> dict:
-    """单集详情（简介/时长）。"""
+async def get_episode(episode_id: int) -> dict:
     e = await request("GET", f"/v0/episodes/{episode_id}")
     item = norm_episode(e)
-    item.update({"desc": e.get("desc") or "", "duration": e.get("duration") or "", "comment": e.get("comment") or {}})
+    item.update(
+        {
+            "desc": e.get("desc") or "",
+            "duration": e.get("duration") or "",
+            "comment": e.get("comment") or {},
+        }
+    )
     return item
 
 
-@router.get("/bangumi/character/{character_id}")
-async def bangumi_character(character_id: int) -> dict:
-    """角色档案 + 该角色出自哪些作品（角色收藏页用）。"""
+async def get_character(character_id: int) -> dict:
+    """角色档案 + 该角色出自哪些作品。"""
     c = await request("GET", f"/v0/characters/{character_id}")
     subjects = await request("GET", f"/v0/characters/{character_id}/subjects")
     base = norm_character(c)
@@ -308,3 +310,144 @@ async def bangumi_character(character_id: int) -> dict:
         }
     )
     return base
+
+
+# ---------------- 刮削落库 ----------------
+
+
+def cover_dir():
+    d = settings.db_path.parent / "uploads" / "covers"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+async def download_cover(bgm_id: int, url: str | None) -> str | None:
+    """封面本地化：下载到 data/uploads/covers/{bgm_id}.jpg，返回可访问路径。
+
+    失败返回 None（调用方保留远程 URL 作为回退，不影响功能）。
+    """
+    if not url:
+        return None
+    dest = cover_dir() / f"{bgm_id}.jpg"
+    rel = f"/static/uploads/covers/{bgm_id}.jpg"
+    if dest.exists() and dest.stat().st_size > 0:
+        return rel
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.bgm_timeout, headers={"User-Agent": settings.bgm_ua}
+        ) as c:
+            r = await c.get(url)
+            if r.status_code != 200 or not r.content or len(r.content) > MAX_COVER_BYTES:
+                return None
+            dest.write_bytes(r.content)
+    except (httpx.HTTPError, OSError):
+        return None
+    return rel
+
+
+async def fetch_snapshot(
+    bgm_id: int, bgm_type: int | None = None, *, with_extras: bool = False
+) -> dict:
+    """抓取条目快照。with_extras=True 时额外抓角色阵容/关联条目/剧集列表。"""
+    fetched_at = datetime.now().isoformat(timespec="seconds")
+    if bgm_type == TYPE_CHARACTER:
+        return {
+            "fetched_at": fetched_at,
+            "kind": "character",
+            "character": await get_character(bgm_id),
+        }
+    subject = await get_subject(bgm_id)
+    snap: dict[str, Any] = {"fetched_at": fetched_at, "kind": "subject", "subject": subject}
+    if with_extras:
+        snap["characters"] = (await get_characters(bgm_id))["characters"]
+        snap["related"] = (await get_related(bgm_id))["related"]
+        if subject.get("bgm_type") == 2:  # 动画才有剧集
+            eps = await get_episodes(bgm_id, limit=200)
+            snap["episodes"] = eps["episodes"]
+            snap["episode_total"] = eps["total"]
+    return snap
+
+
+async def apply_scrape(
+    session: AsyncSession, item: Item, *, with_extras: bool = False
+) -> bool:
+    """把刮削结果写进条目：快照 + 本地封面 + emoji 兜底。
+
+    任何失败都降级（返回 False），绝不影响本地收藏的保存。
+    """
+    if not item.bgm_id:
+        return False
+    try:
+        snapshot = await fetch_snapshot(item.bgm_id, item.bgm_type, with_extras=with_extras)
+    except HTTPException:
+        return False
+    except Exception:  # noqa: BLE001 - 刮削是增强功能，任何异常都不该阻断保存
+        return False
+
+    main = snapshot.get("subject") or snapshot.get("character") or {}
+    item.bangumi = snapshot
+    if not item.bgm_type:
+        item.bgm_type = main.get("bgm_type")
+    cover = await download_cover(
+        item.bgm_id, main.get("image") or (main.get("images") or {}).get("common")
+    )
+    if cover:
+        item.cover_url = cover
+    if not item.emoji:
+        item.emoji = DEFAULT_EMOJI.get(item.category, "🎴")
+    await session.commit()
+    await session.refresh(item)
+    return True
+
+
+# ---------------- HTTP 端点 ----------------
+
+
+@router.get("/bangumi/status")
+async def bangumi_status() -> dict:
+    """连接状态：是否配置 token、token 是否有效、账号信息。"""
+    return await get_status()
+
+
+@router.get("/bangumi/search")
+async def bangumi_search(
+    kw: str = Query(min_length=1, max_length=100),
+    category: str = Query(min_length=2, max_length=20),
+    limit: int = Query(default=12, ge=1, le=30),
+) -> dict:
+    """按分类搜索：作品走 /v0/search/subjects，角色走 /v0/search/characters。"""
+    return await search_bangumi(kw, category, limit)
+
+
+@router.get("/bangumi/subject/{subject_id}")
+async def bangumi_subject(subject_id: int) -> dict:
+    return await get_subject(subject_id)
+
+
+@router.get("/bangumi/subject/{subject_id}/characters")
+async def bangumi_characters(subject_id: int) -> dict:
+    return await get_characters(subject_id)
+
+
+@router.get("/bangumi/subject/{subject_id}/related")
+async def bangumi_related(subject_id: int) -> dict:
+    return await get_related(subject_id)
+
+
+@router.get("/bangumi/subject/{subject_id}/episodes")
+async def bangumi_episodes(
+    subject_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> dict:
+    return await get_episodes(subject_id, offset, limit)
+
+
+@router.get("/bangumi/episode/{episode_id}")
+async def bangumi_episode(episode_id: int) -> dict:
+    return await get_episode(episode_id)
+
+
+@router.get("/bangumi/character/{character_id}")
+async def bangumi_character(character_id: int) -> dict:
+    return await get_character(character_id)

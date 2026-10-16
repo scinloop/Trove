@@ -23,8 +23,19 @@ export interface Item {
   note: string | null
   emoji: string | null
   image_url: string | null
+  // Bangumi 刮削（bgm_type=0 表示角色条目）
+  bgm_id: number | null
+  bgm_type: number | null
+  cover_url: string | null
+  ep_progress: number | null
+  vol_progress: number | null
   created_at: string
   updated_at: string
+}
+
+/** 详情接口额外返回完整刮削快照（列表不返回，避免传输膨胀） */
+export interface ItemDetail extends Item {
+  bangumi: BangumiSnapshot | null
 }
 
 export interface CategoryMeta {
@@ -164,6 +175,8 @@ export interface ItemInput {
   note: string | null
   emoji: string | null
   image_url: string | null
+  bgm_id?: number | null
+  bgm_type?: number | null
 }
 
 export interface Task {
@@ -184,3 +197,113 @@ export interface TaskInput {
   planned_minutes: number | null
   note: string | null
 }
+
+// ---------------- Bangumi 刮削 ----------------
+
+export interface BgmSearchHit {
+  bgm_id: number
+  bgm_type: number | null
+  name: string
+  name_cn: string
+  date: string | null
+  platform: string | null
+  summary: string
+  nsfw: boolean
+  image: string | null
+  score: number | null
+  rank: number | null
+  rating_total: number | null
+  tags: string[]
+}
+
+export interface BgmInfoBoxItem {
+  key: string
+  value: string
+}
+
+/** 条目完整档案（含评分直方图与收藏分布） */
+export interface BgmSubject extends BgmSearchHit {
+  eps: number
+  volumes: number
+  series: boolean
+  meta_tags: string[]
+  infobox: BgmInfoBoxItem[]
+  rating_count: Record<string, number>
+  collection: Record<string, number>
+  images: Record<string, string>
+}
+
+export interface BgmActor {
+  bgm_id: number | null
+  name: string | null
+  image: string | null
+}
+
+export interface BgmCharacter {
+  bgm_id: number
+  bgm_type: number
+  name: string
+  name_cn: string
+  relation: string
+  image: string | null
+  summary: string
+  nsfw: boolean
+  actors: BgmActor[]
+}
+
+/** 角色档案（角色分类收藏） */
+export interface BgmCharacterDetail extends BgmCharacter {
+  gender?: string
+  birthday?: string
+  blood_type?: string
+  infobox?: BgmInfoBoxItem[]
+  images?: Record<string, string>
+  subjects?: (BgmSearchHit & { relation: string; staff?: string })[]
+}
+
+export interface BgmEpisode {
+  bgm_id: number
+  sort: number
+  name: string
+  name_cn: string
+  airdate: string
+  type: number | null
+}
+
+export interface BgmEpisodeDetail extends BgmEpisode {
+  desc: string
+  duration: string
+}
+
+export type BgmRelated = BgmSearchHit & { relation: string }
+
+/** 本地刮削快照（items.bangumi） */
+export interface BangumiSnapshot {
+  fetched_at: string
+  kind: 'subject' | 'character'
+  subject?: BgmSubject
+  character?: BgmCharacterDetail
+  characters?: BgmCharacter[]
+  related?: BgmRelated[]
+  episodes?: BgmEpisode[]
+  episode_total?: number
+}
+
+export interface BgmStatus {
+  configured: boolean
+  connected: boolean
+  user_id?: number
+  username?: string
+  nickname?: string
+  avatar?: string | null
+  r18?: boolean
+}
+
+export interface BgmSearchResult {
+  items: BgmSearchHit[]
+  total: number | null
+  source: 'subject' | 'character'
+}
+
+/** 支持 Bangumi 刮削的分类（与后端 CATEGORY_TYPES 对应） */
+export const BGM_CATEGORIES = ['comic', 'anime', 'game', 'character', 'movie', 'novel'] as const

@@ -1,4 +1,4 @@
-import type { BookSearch, CategoryRow, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemInput, Meta, Stats, Tag, TagGroupRow, Task, TaskInput } from '../types'
+import type { BgmCharacter, BgmCharacterDetail, BgmEpisode, BgmEpisodeDetail, BgmRelated, BgmSearchResult, BgmStatus, BgmSubject, BookSearch, CategoryRow, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemDetail, ItemInput, Meta, Stats, Tag, TagGroupRow, Task, TaskInput } from '../types'
 
 const BASE = '/api'
 
@@ -50,7 +50,7 @@ export const api = {
   stats: () => http<Stats>('/stats'),
 
   list: (p: ListParams = {}) => http<ListResult>(`/items${toQuery(p)}`),
-  getItem: (id: number) => http<Item>(`/items/${id}`),
+  getItem: (id: number) => http<ItemDetail>(`/items/${id}`),
   create: (data: ItemInput) => http<Item>('/items', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: Partial<ItemInput>) =>
     http<Item>(`/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -155,4 +155,20 @@ export const api = {
     const data = (await res.json()) as { url: string }
     return data.url
   },
+
+  // ---------------- Bangumi 刮削 ----------------
+  bgmStatus: () => http<BgmStatus>('/bangumi/status'),
+  bgmSearch: (kw: string, category: string, limit = 12) =>
+    http<BgmSearchResult>(`/bangumi/search${toQuery({ kw, category, limit })}`),
+  bgmSubject: (id: number) => http<BgmSubject>(`/bangumi/subject/${id}`),
+  bgmCharacters: (id: number) =>
+    http<{ characters: BgmCharacter[]; total: number }>(`/bangumi/subject/${id}/characters`),
+  bgmRelated: (id: number) =>
+    http<{ related: BgmRelated[]; total: number }>(`/bangumi/subject/${id}/related`),
+  bgmEpisodes: (id: number, limit = 100) =>
+    http<{ episodes: BgmEpisode[]; total: number }>(`/bangumi/subject/${id}/episodes${toQuery({ limit })}`),
+  bgmEpisode: (id: number) => http<BgmEpisodeDetail>(`/bangumi/episode/${id}`),
+  bgmCharacter: (id: number) => http<BgmCharacterDetail>(`/bangumi/character/${id}`),
+  rescrape: (id: number, withExtras = true) =>
+    http<ItemDetail>(`/items/${id}/scrape${toQuery({ with_extras: withExtras })}`, { method: 'POST' }),
 }

@@ -3,6 +3,8 @@ import { useState, type ChangeEvent } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
 import { statusLabel } from '../lib/labels'
+import { BGM_CATEGORIES, type BgmSearchHit } from '../types'
+import { BgmSearchSheet } from './BgmSearchSheet'
 import { IconImage } from './Icons'
 import { TagPicker } from './TagPicker'
 import { useToast } from './Toast'
@@ -21,6 +23,8 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
   const toast = useToast()
   const qc = useQueryClient()
   const [uploading, setUploading] = useState(false)
+  const [bgmOpen, setBgmOpen] = useState(false) // 刮削搜索弹层
+  const [bgmPicked, setBgmPicked] = useState<BgmSearchHit | null>(null) // 本次选中的条目
 
   const [form, setForm] = useState<ItemInput>(() =>
     item
@@ -39,6 +43,8 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
           note: item.note ?? '',
           emoji: item.emoji,
           image_url: item.image_url,
+          bgm_id: item.bgm_id,
+          bgm_type: item.bgm_type,
         }
       : {
           title: '',
@@ -55,6 +61,8 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
           note: '',
           emoji: null,
           image_url: null,
+          bgm_id: null,
+          bgm_type: null,
         },
   )
 
@@ -105,6 +113,33 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
       note: form.note?.trim() || null,
       emoji: form.emoji,
     })
+  }
+
+  const canScrape = (BGM_CATEGORIES as readonly string[]).includes(form.category)
+
+  /** 选中 Bangumi 条目：自动填充表单（已有内容不覆盖），并记住绑定 */
+  const pickBgm = (hit: BgmSearchHit) => {
+    setBgmPicked(hit)
+    setBgmOpen(false)
+    setForm((f) => {
+      const subs = meta.genres[f.category] ?? []
+      // bgm 标签与本地题材同名的自动勾选
+      const matched = subs.filter((g) => hit.tags.includes(g.label)).map((g) => g.key)
+      const emoji = f.emoji || meta.categories.find((c) => c.key === f.category)?.emoji || null
+      return {
+        ...f,
+        title: hit.name_cn || hit.name || f.title,
+        bgm_id: hit.bgm_id,
+        bgm_type: hit.bgm_type ?? 0,
+        source: f.source?.trim() ? f.source : (hit.platform ?? f.source),
+        note: f.note?.trim() ? f.note : hit.summary || f.note,
+        tags: f.tags.length > 0 ? f.tags : hit.tags.slice(0, 5),
+        emoji,
+        sub_types:
+          matched.length > 0 ? Array.from(new Set([...f.sub_types, ...matched])) : f.sub_types,
+      }
+    })
+    toast('已绑定 Bangumi 条目，保存后自动刮削档案与封面')
   }
 
   const pickImage = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -193,13 +228,58 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
               </div>
             </>
           )}
-          <label>标题 *</label>
+          <label className="bgm-label">
+            <span>标题 *</span>
+            {canScrape && (
+              <button type="button" className="bgm-btn" onClick={() => setBgmOpen(true)}>
+                🔍 从 Bangumi 刮削
+              </button>
+            )}
+          </label>
           <input
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="如：葬送的芙莉莲 / 雷电将军"
+            placeholder={canScrape ? '输入名称后点「刮削」，自动填充并刮档案' : '如：葬送的芙莉莲 / 雷电将军'}
             autoFocus
           />
+          {(bgmPicked || form.bgm_id) && (
+            <div className="bgm-picked">
+              {bgmPicked?.image ? (
+                <img src={bgmPicked.image} alt="" />
+              ) : (
+                <span className="bgm-picked-ph">🎴</span>
+              )}
+              <div className="bgm-picked-info">
+                <b>
+                  {bgmPicked
+                    ? bgmPicked.name_cn || bgmPicked.name
+                    : `已绑定 Bangumi #${form.bgm_id}`}
+                </b>
+                {bgmPicked && (
+                  <i>
+                    {[
+                      bgmPicked.date?.slice(0, 10),
+                      bgmPicked.platform,
+                      bgmPicked.score ? `★${bgmPicked.score}` : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </i>
+                )}
+                <span>保存后自动刮削档案与封面（离线可看）</span>
+              </div>
+              <button
+                type="button"
+                className="mini-btn"
+                onClick={() => {
+                  setBgmPicked(null)
+                  setForm((f) => ({ ...f, bgm_id: null, bgm_type: null }))
+                }}
+              >
+                解除
+              </button>
+            </div>
+          )}
           <label>来源作品 / 作者</label>
           <input
             value={form.source ?? ''}
@@ -307,6 +387,14 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
           </button>
         </div>
       </div>
+      {bgmOpen && (
+        <BgmSearchSheet
+          category={form.category}
+          initialKw={form.title}
+          onPick={pickBgm}
+          onClose={() => setBgmOpen(false)}
+        />
+      )}
     </div>
   )
 }

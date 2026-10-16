@@ -18,7 +18,7 @@ collecthub/
 │   │   ├── crud.py          # 收藏/题材/标签/章节 的筛选、增删改、分章与书内搜索
 │   │   ├── seed.py          # 题材库补齐 + 演示数据（python -m app.seed [--reset]）
 │   │   └── routers/         # items / tasks / uploads / meta / stats / genres / tags / chapters / bangumi
-│   └── tests/               # test_api.py（25） + test_bangumi.py（14）+ conftest.py，共 39 个用例
+│   └── tests/               # test_api.py（25） + test_bangumi.py（20）+ conftest.py，共 45 个用例
 └── frontend/                # React 前端（Vite 8 + React 19 + TS 严格模式）
     └── src/
         ├── api/client.ts    # fetch 封装（/api + 图片上传 + .txt 导入）
@@ -38,7 +38,7 @@ collecthub/
 - **小说阅读器**：小说条目支持导入正文（.txt 上传 / 整本粘贴，UTF-8 优先自动回退 GBK），按「第X章 / 卷 / Chapter N」自动分章（可自定义正则重新分章）；全屏阅读器带目录抽屉（每章字数）、字号/行距/浅色·护眼·夜间三主题、阅读进度记忆。
 - **书内搜索**：全书关键词命中计数 + 逐处跳转（悬浮条 ‹ › 或章节结果直达），命中高亮居中显示。
 - 其余：评分 / 状态 / 喜爱 / 标签筛选与搜索、图片上传、统计看板、任务清单（待办 + 长期目标）。
-- **Bangumi 刮削（进行中）**：漫画 / 动漫 / 游戏 / 角色 / 电影 / 小说 六类可接入 [Bangumi API](https://bangumi.github.io/api/) 自动刮削作品档案（评分与排名、收藏五档分布、infobox、全量角色阵容与 CV、关联条目、剧集列表）；电影只取三次元（动画电影归动漫）。已用 Personal Access Token 授权后默认包含 R18 内容。出站请求统一使用符合官方规范的 User-Agent 并串行节流 ≤1 req/s。
+- **Bangumi 刮削**：漫画 / 动漫 / 游戏 / 角色 / 电影 / 小说 六类可在添加时点「🔍 从 Bangumi 刮削」搜索并选中条目——标题/来源/标签/简介自动填充，**保存后服务端抓取完整档案**（评分与排名、评分直方图、收藏五档分布、infobox、全量角色阵容与 CV、关联条目、剧集列表）写入本地快照，并把封面**下载到本地**（离线可用）。电影只取三次元（动画电影归动漫）。已配置 Personal Access Token 时默认包含 R18。出站请求遵守[官方 UA 规范](https://bangumi.github.io/api/)并串行节流 ≤1 req/s；Bangumi 不可达时自动降级，不影响本地收藏。
 
 ## 本地运行（两个终端）
 
@@ -95,7 +95,7 @@ cd ../backend
 ## 测试
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest -v   # 25 passed
+cd backend && .venv\Scripts\python -m pytest -v   # 45 passed
 cd frontend && pnpm build                          # tsc -b 严格模式 + vite build
 ```
 

@@ -134,6 +134,12 @@ def bgm_calls(monkeypatch):
         return client
 
     monkeypatch.setattr(bgm, "_client_get", fake_client)
+
+    async def fake_cover(bgm_id: int, url: str | None) -> str | None:
+        """封面本地化在此替换：测试不下载真实图片。"""
+        return f"/static/uploads/covers/{bgm_id}.jpg" if url else None
+
+    monkeypatch.setattr(bgm, "download_cover", fake_cover)
     return calls
 
 
@@ -272,3 +278,96 @@ async def test_upstream_5xx_maps_to_502(bgm_calls):
     with pytest.raises(HTTPException) as exc:
         await bgm.request("GET", "/v0/boom")
     assert exc.value.status_code == 502
+
+
+# ---------------- 刮削落库（保存即刮削） ----------------
+
+
+async def test_create_item_scrapes_snapshot_and_cover(client, bgm_calls):
+    r = await client.post(
+        "/api/items",
+        json={"title": "人形电脑天使心", "category": "anime", "bgm_id": 12, "bgm_type": 2},
+    )
+    assert r.status_code == 201
+    created = r.json()
+    assert created["bgm_id"] == 12
+    assert created["cover_url"] == "/static/uploads/covers/12.jpg"
+    assert created["emoji"] == "📺"  # 未填 emoji 时按分类兜底
+    assert bgm_calls[0]["path"] == "/v0/subjects/12"
+
+    # 列表不含完整快照，详情接口才返回
+    lst = (await client.get("/api/items")).json()
+    assert not any("bangumi" in i for i in lst["items"])
+    detail = (await client.get(f"/api/items/{created['id']}")).json()
+    snap = detail["bangumi"]
+    assert snap["kind"] == "subject"
+    assert snap["subject"]["name_cn"] == "人形电脑天使心"
+    assert snap["subject"]["collection"]["collect"] == 8945
+
+
+async def test_scrape_failure_never_blocks_save(client, bgm_calls):
+    """Bangumi 不可达（404/5xx）时收藏照样保存，只是没有快照。"""
+    r = await client.post(
+        "/api/items",
+        json={"title": "库里没有的条目", "category": "anime", "bgm_id": 99999, "bgm_type": 2},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["cover_url"] is None
+    assert (await client.get(f"/api/items/{body['id']}")).json()["bangumi"] is None
+
+
+async def test_update_does_not_rescrape_unchanged_bgm(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={"title": "人形电脑天使心", "category": "anime", "bgm_id": 12, "bgm_type": 2},
+        )
+    ).json()
+    before = len(bgm_calls)
+    r = await client.patch(f"/api/items/{created['id']}", json={"title": "改个名字"})
+    assert r.status_code == 200
+    assert r.json()["title"] == "改个名字"
+    assert len(bgm_calls) == before  # 未换绑 → 不再请求 Bangumi
+
+
+async def test_rescrape_endpoint_pulls_extras(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={"title": "人形电脑天使心", "category": "anime", "bgm_id": 12, "bgm_type": 2},
+        )
+    ).json()
+    r = await client.post(f"/api/items/{created['id']}/scrape")
+    assert r.status_code == 200
+    snap = r.json()["bangumi"]
+    assert snap["kind"] == "subject"
+    assert len(snap["characters"]) == 25  # 角色阵容全量
+    assert snap["related"][0]["relation"] == "漫画"
+    assert snap["episode_total"] == 27
+    assert snap["subject"]["name_cn"] == "人形电脑天使心"
+
+
+async def test_rescrape_unbound_item_is_422(client, bgm_calls):
+    created = (await client.post("/api/items", json={"title": "手动条目", "category": "anime"})).json()
+    r = await client.post(f"/api/items/{created['id']}/scrape")
+    assert r.status_code == 422
+
+
+async def test_character_item_scrapes_character_profile(client, bgm_calls):
+    r = await client.post(
+        "/api/items",
+        json={
+            "title": "セイバー",
+            "category": "character",
+            "sub_types": ["anime_manga"],
+            "bgm_id": 179271,
+            "bgm_type": 0,
+        },
+    )
+    assert r.status_code == 201
+    snap = (await client.get(f"/api/items/{r.json()['id']}")).json()["bangumi"]
+    assert snap["kind"] == "character"
+    assert snap["character"]["gender"] == "女"
+    assert snap["character"]["subjects"][0]["relation"] == "漫画"  # 出自哪些作品
+    assert bgm_calls[0]["path"] == "/v0/characters/179271"

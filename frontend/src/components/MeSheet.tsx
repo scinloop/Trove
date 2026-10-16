@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
+
 interface Props {
   theme: 'light' | 'dark'
   onToggleTheme: () => void
@@ -6,6 +9,14 @@ interface Props {
 }
 
 export function MeSheet({ theme, onToggleTheme, onManage, onClose }: Props) {
+  const bgm = useQuery({
+    queryKey: ['bgm-status'],
+    queryFn: () => api.bgmStatus(),
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const st = bgm.data
+
   return (
     <div
       className="overlay show"
@@ -37,6 +48,22 @@ export function MeSheet({ theme, onToggleTheme, onManage, onClose }: Props) {
             <button className="me-link" onClick={onManage}>
               🎨 题材与标签管理
             </button>
+          </div>
+          <div className="me-row">
+            <span>Bangumi 刮削</span>
+            {bgm.isPending ? (
+              <em className="me-note">检查中…</em>
+            ) : st?.connected ? (
+              <em className="me-note ok">
+                {st.avatar ? <img className="me-avatar" src={st.avatar} alt="" /> : null}
+                已连接 {st.nickname || st.username}
+                {st.r18 ? ' · R18 已开启' : ''}
+              </em>
+            ) : st?.configured ? (
+              <em className="me-note warn">令牌无效，请更新 BGM_TOKEN</em>
+            ) : (
+              <em className="me-note">未配置令牌（backend/.env 的 BGM_TOKEN）</em>
+            )}
           </div>
         </div>
         <p className="about">
