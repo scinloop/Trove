@@ -226,6 +226,9 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const INFO_LIMIT = 8
   const shownInfo = infoOpen ? infobox : infobox.slice(0, INFO_LIMIT)
   const summary = subject?.summary ?? character?.summary ?? ''
+  // 历史数据里「笔记」可能被填成了简介（早期自动填充所致）→ 内容相同就不重复展示
+  const noteDuplicatesSummary =
+    !!cur.note && !!summary && cur.note.trim() === summary.trim()
   const titleAlt = subject?.name_cn && subject.name ? subject.name : ''
 
   return (
@@ -588,11 +591,13 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           </>
         )}
 
-        {/* 8. 笔记 */}
-        <div className="m-note">
-          <i>笔记</i>
-          <p>{cur.note || '还没有写笔记…'}</p>
-        </div>
+        {/* 8. 笔记（与简介重复时不重复展示） */}
+        {!noteDuplicatesSummary && (
+          <div className="m-note">
+            <i>笔记</i>
+            <p>{cur.note || '还没有写笔记…'}</p>
+          </div>
+        )}
 
         {/* 9. 操作栏 */}
         <div className="m-acts">

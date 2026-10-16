@@ -445,10 +445,22 @@ async def fetch_snapshot(
     return snap
 
 
+# 自动填充「来源」时优先取用的 infobox 字段（作者 / 原作方，而不是 TV 这类类型词）
+SOURCE_INFOBOX_KEYS: tuple[str, ...] = ("原作", "作者", "出版社", "开发", "厂牌", "制作公司")
+
+
+def source_from_infobox(infobox: list[dict] | None) -> str | None:
+    for key in SOURCE_INFOBOX_KEYS:
+        for item in infobox or []:
+            if item.get("key") == key and item.get("value"):
+                return str(item["value"])[:200]
+    return None
+
+
 async def apply_scrape(
     session: AsyncSession, item: Item, *, with_extras: bool = False
 ) -> bool:
-    """把刮削结果写进条目：快照 + 本地封面 + emoji 兜底。
+    """把刮削结果写进条目：快照 + 本地封面 + emoji/来源兜底。
 
     任何失败都降级（返回 False），绝不影响本地收藏的保存。
     """
@@ -472,6 +484,8 @@ async def apply_scrape(
         item.cover_url = cover
     if not item.emoji:
         item.emoji = DEFAULT_EMOJI.get(item.category, "🎴")
+    if not (item.source or "").strip():
+        item.source = source_from_infobox(main.get("infobox"))
     await session.commit()
     await session.refresh(item)
     return True

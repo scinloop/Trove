@@ -36,6 +36,7 @@ SUBJECT_12 = {
         {"key": "中文名", "value": "人形电脑天使心"},
         {"key": "别名", "value": [{"v": "Chobits"}, {"v": "电脑天使"}]},
         {"key": "话数", "value": "27"},
+        {"key": "原作", "value": "CLAMP"},
         {"key": "空值项", "value": ""},
         # 以下为制作班底，必须被过滤掉（需求：制作人员全部不要）
         {"key": "导演", "value": "浅香守生"},
@@ -307,6 +308,7 @@ async def test_create_item_scrapes_snapshot_and_cover(client, bgm_calls):
     assert created["bgm_id"] == 12
     assert created["cover_url"] == "/static/uploads/covers/12.jpg"
     assert created["emoji"] == "📺"  # 未填 emoji 时按分类兜底
+    assert created["source"] == "CLAMP"  # 来源自动取 infobox 的「原作」，而非 TV 这类类型词
     assert bgm_calls[0]["path"] == "/v0/subjects/12"
 
     # 列表不含完整快照，详情接口才返回

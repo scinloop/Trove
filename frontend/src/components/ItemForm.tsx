@@ -126,13 +126,13 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
       // bgm 标签与本地题材同名的自动勾选
       const matched = subs.filter((g) => hit.tags.includes(g.label)).map((g) => g.key)
       const emoji = f.emoji || meta.categories.find((c) => c.key === f.category)?.emoji || null
+      // 注意：简介留在快照里由详情页展示，不写进「笔记」（否则详情页两处重复）；
+      // 来源也不填 platform（那是 TV/OVA 这类类型词），由后端从 infobox 的「原作/作者」补。
       return {
         ...f,
         title: hit.name_cn || hit.name || f.title,
         bgm_id: hit.bgm_id,
         bgm_type: hit.bgm_type ?? 0,
-        source: f.source?.trim() ? f.source : (hit.platform ?? f.source),
-        note: f.note?.trim() ? f.note : hit.summary || f.note,
         tags: f.tags.length > 0 ? f.tags : hit.tags.slice(0, 5),
         emoji,
         sub_types:
