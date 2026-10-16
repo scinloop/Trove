@@ -754,6 +754,246 @@ select {
   background: color-mix(in srgb, var(--like) 8%, var(--panel));
 }
 
+/* ---------- 收藏详情页（Bangumi 档案版） ---------- */
+
+.m-hero {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.m-hero-cover {
+  width: 120px;
+  height: 168px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  background: var(--panel2);
+}
+
+.m-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.m-hero-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m-orig {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.bgm-card {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--panel2);
+  border-radius: 12px;
+}
+
+.bgm-score {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-right: 12px;
+  border-right: 1px solid var(--line);
+}
+
+.bgm-score b {
+  font-size: 26px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.bgm-score span {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.bgm-bars {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.bgm-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.bgm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.bgm-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bgm-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.bgm-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.m-info {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 6px 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--panel2);
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+
+.m-info-row {
+  display: contents;
+}
+
+.m-info-row i {
+  font-style: normal;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-info-row span {
+  word-break: break-word;
+}
+
+.m-sub {
+  font-size: 13px;
+  margin: 16px 0 8px;
+}
+
+.cast-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.cast-row::-webkit-scrollbar {
+  display: none;
+}
+
+.cast {
+  flex: none;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.cast-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--panel2);
+  font-size: 22px;
+}
+
+.cast-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cast b {
+  font-size: 11.5px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast i {
+  font-size: 10px;
+  color: var(--muted);
+  font-style: normal;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.rel i {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.rel:hover {
+  border-color: var(--accent);
+}
+
+.clamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .m-grid {
   display: flex;
   flex-direction: column;
@@ -2593,5 +2833,25 @@ select {
 @media (max-width: 760px) {
   .site-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* 详情页：封面缩小与标题并排 */
+  .m-hero {
+    gap: 10px;
+  }
+
+  .m-hero-cover {
+    width: 92px;
+    height: 128px;
+    font-size: 32px;
+  }
+
+  .m-info {
+    grid-template-columns: 72px 1fr;
+    font-size: 12px;
+  }
+
+  .bgm-score b {
+    font-size: 22px;
   }
 }

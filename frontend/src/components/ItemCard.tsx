@@ -31,7 +31,9 @@ export function ItemCard({ item, index, onOpen }: Props) {
       onClick={() => onOpen(item)}
     >
       <div className="cover" style={{ background: `${color}14` }}>
-        {item.image_url ? (
+        {item.cover_url ? (
+          <img className="cover-img" src={item.cover_url} alt={item.title} loading="lazy" />
+        ) : item.image_url ? (
           <img className="cover-img" src={item.image_url} alt={item.title} loading="lazy" />
         ) : favSrc && !favErr ? (
           <img

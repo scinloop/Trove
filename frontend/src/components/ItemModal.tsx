@@ -1,12 +1,20 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
-import { useConfirm } from './Confirm'
 import { useMeta } from '../hooks/queries'
-import { catOf, fmtWords, acquireOf, faviconUrl, genresOf, hostOf, statusLabel, workStatusOf } from '../lib/labels'
+import {
+  catOf,
+  fmtWords,
+  acquireOf,
+  faviconUrl,
+  genresOf,
+  hostOf,
+  statusLabel,
+  workStatusOf,
+} from '../lib/labels'
+import type { BgmCharacter, BgmRelated, Item, ItemInput } from '../types'
+import { useConfirm } from './Confirm'
 import { useToast } from './Toast'
-import type { Item, ItemInput } from '../types'
 
 interface Props {
   item: Item
@@ -16,6 +24,15 @@ interface Props {
   onManageChapters: (it: Item) => void
 }
 
+/** 收藏分布五档（Bangumi collection 字段） */
+const COLLECTION_LABELS: [string, string, string][] = [
+  ['collect', '看过', '#22c55e'],
+  ['doing', '在看', '#3b82f6'],
+  ['wish', '想看', '#f59e0b'],
+  ['on_hold', '搁置', '#a1a1aa'],
+  ['dropped', '抛弃', '#ef4444'],
+]
+
 export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: Props) {
   const meta = useMeta()
   const toast = useToast()
@@ -23,17 +40,43 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const qc = useQueryClient()
   const [fav, setFav] = useState(item.favorite)
   const [favErr, setFavErr] = useState(false)
+  const [descOpen, setDescOpen] = useState(false)
 
-  const cat = catOf(meta, item.category)
-  const color = cat?.color ?? '#71717a'
-  const subMetas = genresOf(meta, item.category, item.sub_types)
-  const ws = workStatusOf(meta, item.work_status)
-  const ac = item.category === 'character' ? acquireOf(meta, item.acquire) : null
+  // 详情（含刮削快照）：列表数据里没有快照，进详情时单独取
+  const detailQ = useQuery({
+    queryKey: ['item', item.id],
+    queryFn: () => api.getItem(item.id),
+    staleTime: 60_000,
+  })
+  const cur = detailQ.data ?? item
+  const snap = detailQ.data?.bangumi ?? null
+  const subject = snap?.subject
+  const character = snap?.character
+  const cover = cur.cover_url
 
-  const isNovel = item.category === 'novel'
-  const isWebsite = item.category === 'website'
-  const host = hostOf(item.url)
-  const favSrc = isWebsite ? faviconUrl(item.url) : null
+  const isNovel = cur.category === 'novel'
+  const isWebsite = cur.category === 'website'
+  const host = hostOf(cur.url)
+  const favSrc = isWebsite ? faviconUrl(cur.url) : null
+
+  // 快照里没有的角色/关联条目 → 打开详情时懒加载（只读展示，不写库）
+  const castQ = useQuery({
+    queryKey: ['bgm-cast', cur.bgm_id],
+    queryFn: () => api.bgmCharacters(cur.bgm_id as number),
+    enabled: !!cur.bgm_id && cur.bgm_type !== 0 && !snap?.characters,
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+  const relQ = useQuery({
+    queryKey: ['bgm-related', cur.bgm_id],
+    queryFn: () => api.bgmRelated(cur.bgm_id as number),
+    enabled: !!cur.bgm_id && cur.bgm_type !== 0 && !snap?.related,
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+  const cast: BgmCharacter[] = snap?.characters ?? castQ.data?.characters ?? []
+  const related: BgmRelated[] = snap?.related ?? relQ.data?.related ?? []
+
   const chaptersQ = useQuery({
     queryKey: ['chapters', item.id],
     queryFn: () => api.chapters(item.id),
@@ -50,6 +93,16 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
     },
   })
 
+  const scrapeMut = useMutation({
+    mutationFn: () => api.rescrape(item.id, true),
+    onSuccess: (d) => {
+      qc.setQueryData(['item', item.id], d)
+      void qc.invalidateQueries({ queryKey: ['items'] })
+      toast('已重新刮削最新档案')
+    },
+    onError: (e) => toast('刮削失败：' + e.message),
+  })
+
   const delMut = useMutation({
     mutationFn: () => api.remove(item.id),
     onSuccess: () => {
@@ -57,22 +110,24 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
       void qc.invalidateQueries({ queryKey: ['stats'] })
       onClose()
       const input: ItemInput = {
-        title: item.title,
-        category: item.category,
-        sub_types: item.sub_types,
-        work_status: item.work_status,
-        acquire: item.acquire,
-        url: item.url,
-        source: item.source,
-        rating: item.rating,
-        status: item.status,
-        favorite: item.favorite,
-        tags: item.tags,
-        note: item.note,
-        emoji: item.emoji,
-        image_url: item.image_url,
+        title: cur.title,
+        category: cur.category,
+        sub_types: cur.sub_types,
+        work_status: cur.work_status,
+        acquire: cur.acquire,
+        url: cur.url,
+        source: cur.source,
+        rating: cur.rating,
+        status: cur.status,
+        favorite: cur.favorite,
+        tags: cur.tags,
+        note: cur.note,
+        emoji: cur.emoji,
+        image_url: cur.image_url,
+        bgm_id: cur.bgm_id,
+        bgm_type: cur.bgm_type,
       }
-      toast(`已删除「${item.title}」`, {
+      toast(`已删除「${cur.title}」`, {
         label: '撤销',
         run: () => {
           void api
@@ -88,6 +143,18 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
     onError: (e) => toast('删除失败：' + e.message),
   })
 
+  const cat = catOf(meta, cur.category)
+  const color = cat?.color ?? '#71717a'
+  const subMetas = genresOf(meta, cur.category, cur.sub_types)
+  const ws = workStatusOf(meta, cur.work_status)
+  const ac = cur.category === 'character' ? acquireOf(meta, cur.acquire) : null
+
+  const collection = subject?.collection ?? {}
+  const collectionTotal = COLLECTION_LABELS.reduce((s, [k]) => s + (collection[k] ?? 0), 0)
+  const infobox = subject?.infobox ?? character?.infobox ?? []
+  const summary = subject?.summary ?? character?.summary ?? ''
+  const titleAlt = subject?.name_cn && subject.name ? subject.name : ''
+
   return (
     <div
       className="overlay show"
@@ -95,55 +162,60 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="modal">
-        <div className="m-cover" style={item.image_url ? undefined : { background: `${color}14` }}>
-          {item.image_url ? (
-            <img className="m-cover-img" src={item.image_url} alt={item.title} />
-          ) : favSrc && !favErr ? (
-            <img
-              className="m-cover-fav"
-              src={favSrc}
-              alt={item.title}
-              onError={() => setFavErr(true)}
-            />
-          ) : (
-            <span>{item.emoji ?? cat?.emoji ?? '🎴'}</span>
-          )}
-        </div>
-        <div className="m-head">
-          <div className="m-title">
-            <h2>{item.title}</h2>
-            <button className="m-close" onClick={onClose} aria-label="关闭">
-              ✕
-            </button>
+      <div className="modal modal-lg">
+        {/* 1. Hero：封面 + 标题 + 徽章 */}
+        <div className="m-hero">
+          <div className="m-hero-cover" style={cover ? undefined : { background: `${color}14` }}>
+            {cover ? (
+              <img src={cover} alt={cur.title} />
+            ) : favSrc && !favErr ? (
+              <img src={favSrc} alt={cur.title} onError={() => setFavErr(true)} />
+            ) : (
+              <span>{cur.emoji ?? cat?.emoji ?? '🎴'}</span>
+            )}
           </div>
-          <div className="m-badges">
-            <span className="pill">
-              <i style={{ background: color }} />
-              {cat?.label ?? item.category}
-            </span>
-            {subMetas.map((g) => (
-              <span className="pill" key={g.key}>
-                <i style={{ background: g.color }} />
-                {g.label}
-              </span>
-            ))}
-            {ws && (
+          <div className="m-hero-info">
+            <div className="m-title">
+              <h2>{cur.title}</h2>
+              <button className="m-close" onClick={onClose} aria-label="关闭">
+                ✕
+              </button>
+            </div>
+            {titleAlt && <i className="m-orig">{titleAlt}</i>}
+            <div className="m-badges">
               <span className="pill">
-                <i style={{ background: ws.color }} />
-                {ws.label}
+                <i style={{ background: color }} />
+                {cat?.label ?? cur.category}
               </span>
-            )}
-            {ac && (
+              {subMetas.map((g) => (
+                <span className="pill" key={g.key}>
+                  <i style={{ background: g.color }} />
+                  {g.label}
+                </span>
+              ))}
+              {ws && (
+                <span className="pill">
+                  <i style={{ background: ws.color }} />
+                  {ws.label}
+                </span>
+              )}
+              {ac && (
+                <span className="pill">
+                  <i style={{ background: ac.color }} />
+                  {ac.label}
+                </span>
+              )}
               <span className="pill">
-                <i style={{ background: ac.color }} />
-                {ac.label}
+                <i style={{ background: meta.status_colors[cur.status] ?? '#71717a' }} />
+                {statusLabel(meta, cur.category, cur.status)}
               </span>
-            )}
-            <span className="pill">
-              <i style={{ background: meta.status_colors[item.status] ?? '#71717a' }} />
-              {statusLabel(meta, item.category, item.status)}
-            </span>
+              {(subject?.nsfw || character?.nsfw) && <span className="r18">R18</span>}
+            </div>
+            <p className="stars big">
+              {'★'.repeat(cur.rating)}
+              {'☆'.repeat(5 - cur.rating)}
+              <b>{cur.rating}.0</b>
+            </p>
             <button
               className={'fav-btn' + (fav ? ' on' : '')}
               onClick={() => {
@@ -155,32 +227,102 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               {fav ? '♥ 已喜爱' : '♡ 设为喜爱'}
             </button>
           </div>
-          <p className="stars big">
-            {'★'.repeat(item.rating)}
-            {'☆'.repeat(5 - item.rating)}
-            <b>{item.rating}.0</b>
-          </p>
         </div>
+
+        {/* 2. Bangumi 评分与收藏分布 */}
+        {subject && (subject.score || subject.rank) && (
+          <div className="bgm-card">
+            <div className="bgm-score">
+              <b>{subject.score ? subject.score.toFixed(1) : '—'}</b>
+              <span>
+                Bangumi 评分
+                {subject.rank ? (
+                  <>
+                    <br />#{subject.rank}
+                  </>
+                ) : null}
+                <br />
+                {subject.rating_total ?? 0} 人
+              </span>
+            </div>
+            <div className="bgm-bars">
+              <div className="bgm-bar">
+                {COLLECTION_LABELS.map(([k, , c]) => {
+                  const v = collection[k] ?? 0
+                  if (!v || !collectionTotal) return null
+                  return (
+                    <i
+                      key={k}
+                      style={{ width: `${(v / collectionTotal) * 100}%`, background: c }}
+                      title={`${k}: ${v}`}
+                    />
+                  )
+                })}
+              </div>
+              <div className="bgm-legend">
+                {COLLECTION_LABELS.map(([k, label, c]) => (
+                  <span key={k}>
+                    <i style={{ background: c }} />
+                    {label} {collection[k] ?? 0}
+                  </span>
+                ))}
+              </div>
+              <div className="bgm-extra">
+                {subject.eps ? <span>话数 {subject.eps}</span> : null}
+                {subject.volumes ? <span>卷数 {subject.volumes}</span> : null}
+                {subject.platform ? <span>{subject.platform}</span> : null}
+                {subject.date ? <span>{subject.date}</span> : null}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. 简介 */}
+        {summary && (
+          <div className="m-note">
+            <i>简介</i>
+            <p className={descOpen ? '' : 'clamp3'}>{summary}</p>
+            {summary.length > 120 && (
+              <button className="mini-btn" onClick={() => setDescOpen((o) => !o)}>
+                {descOpen ? '收起' : '展开全文'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 4. 作品信息表（infobox） */}
+        {infobox.length > 0 && (
+          <div className="m-info">
+            {infobox.map((x) => (
+              <div className="m-info-row" key={x.key}>
+                <i>{x.key}</i>
+                <span>{x.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 5. 我的记录 */}
         <div className="m-grid">
           {isWebsite && (
             <div className="m-row">
               <i>网址</i>
               <span className="m-url">
-                <a href={item.url ?? '#'} target="_blank" rel="noreferrer">
-                  {host ?? item.url}
+                <a href={cur.url ?? '#'} target="_blank" rel="noreferrer">
+                  {host ?? cur.url}
                 </a>
               </span>
             </div>
           )}
           <div className="m-row">
             <i>来源</i>
-            <span>{item.source || '—'}</span>
+            <span>{cur.source || '—'}</span>
           </div>
           <div className="m-row">
             <i>标签</i>
             <span>
-              {item.tags.length > 0
-                ? item.tags.map((t) => (
+              {cur.tags.length > 0
+                ? cur.tags.map((t) => (
                     <em className="tag" key={t}>
                       #{t}
                     </em>
@@ -196,25 +338,121 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               </span>
             </div>
           )}
+          {cur.ep_progress != null && (
+            <div className="m-row">
+              <i>追番进度</i>
+              <span>
+                第 {cur.ep_progress}
+                {subject?.eps ? ` / ${subject.eps}` : ''} 集
+              </span>
+            </div>
+          )}
           <div className="m-row">
             <i>收藏于</i>
-            <span>{item.created_at.slice(0, 10)}</span>
+            <span>{cur.created_at.slice(0, 10)}</span>
           </div>
         </div>
+
+        {/* 6. 角色阵容 */}
+        {cast.length > 0 && (
+          <>
+            <h3 className="m-sub">
+              角色阵容 · {cast.length}
+              {!snap?.characters && castQ.isFetching ? ' （加载中…）' : ''}
+            </h3>
+            <div className="cast-row">
+              {cast.map((c) => (
+                <div className="cast" key={c.bgm_id}>
+                  <span className="cast-img">
+                    {c.image ? <img src={c.image} alt="" loading="lazy" /> : '🎴'}
+                  </span>
+                  <b title={c.name}>{c.name_cn || c.name}</b>
+                  <i>
+                    {c.relation}
+                    {c.actors[0]?.name ? ` · ${c.actors[0].name}` : ''}
+                  </i>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* 6b. 角色条目：该角色出自哪些作品 */}
+        {character?.subjects && character.subjects.length > 0 && (
+          <>
+            <h3 className="m-sub">出演作品 · {character.subjects.length}</h3>
+            <div className="rel-list">
+              {character.subjects.map((s) => (
+                <a
+                  className="rel"
+                  key={s.bgm_id}
+                  href={`https://bgm.tv/subject/${s.bgm_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <b>{s.name_cn || s.name}</b>
+                  <i>{s.relation}</i>
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* 7. 关联条目 */}
+        {related.length > 0 && (
+          <>
+            <h3 className="m-sub">
+              关联条目 · {related.length}
+              {!snap?.related && relQ.isFetching ? ' （加载中…）' : ''}
+            </h3>
+            <div className="rel-list">
+              {related.map((r) => (
+                <a
+                  className="rel"
+                  key={r.bgm_id}
+                  href={`https://bgm.tv/subject/${r.bgm_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <b>{r.name_cn || r.name}</b>
+                  <i>{r.relation}</i>
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* 8. 笔记 */}
         <div className="m-note">
           <i>笔记</i>
-          <p>{item.note || '还没有写笔记…'}</p>
+          <p>{cur.note || '还没有写笔记…'}</p>
         </div>
+
+        {/* 9. 操作栏 */}
         <div className="m-acts">
           <button className="btn ghost" onClick={onClose}>
             关闭
           </button>
-          <button className="btn ghost" onClick={() => onEdit(item)}>
+          <button className="btn ghost" onClick={() => onEdit(cur)}>
             编辑
           </button>
           {isNovel && (
-            <button className="btn ghost" onClick={() => onManageChapters(item)}>
-              章节管理
+            <>
+              <button className="btn ghost" onClick={() => onRead(cur)}>
+                阅读
+              </button>
+              <button className="btn ghost" onClick={() => onManageChapters(cur)}>
+                章节管理
+              </button>
+            </>
+          )}
+          {cur.bgm_id && (
+            <button
+              className="btn ghost"
+              onClick={() => scrapeMut.mutate()}
+              disabled={scrapeMut.isPending}
+            >
+              {scrapeMut.isPending ? '刮削中…' : '🔄 重新刮削'}
             </button>
           )}
           <button
@@ -222,7 +460,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
             onClick={() =>
               confirm(
                 {
-                  title: `删除「${item.title}」？`,
+                  title: `删除「${cur.title}」？`,
                   desc: '收藏将进入回收流程：5 秒内可撤销；确认后无法找回。',
                 },
                 () => delMut.mutate(),
@@ -232,16 +470,6 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           >
             删除
           </button>
-          {isNovel && (
-            <button className="btn primary" onClick={() => onRead(item)}>
-              {chapters.length > 0 ? '📖 阅读' : '📄 导入正文'}
-            </button>
-          )}
-          {isWebsite && (
-            <a className="btn primary" href={item.url ?? '#'} target="_blank" rel="noreferrer">
-              打开网站 ↗
-            </a>
-          )}
         </div>
       </div>
     </div>
