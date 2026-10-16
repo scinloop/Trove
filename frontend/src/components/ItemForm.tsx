@@ -228,15 +228,16 @@ export function ItemForm({ item, onClose, presetCategory }: Props) {
               </div>
             </>
           )}
-          <label className="bgm-label">
-            <span>标题 *</span>
+          <div className="bgm-label">
+            <label htmlFor="item-title">标题 *</label>
             {canScrape && (
               <button type="button" className="bgm-btn" onClick={() => setBgmOpen(true)}>
                 🔍 从 Bangumi 刮削
               </button>
             )}
-          </label>
+          </div>
           <input
+            id="item-title"
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             placeholder={canScrape ? '输入名称后点「刮削」，自动填充并刮档案' : '如：葬送的芙莉莲 / 雷电将军'}
