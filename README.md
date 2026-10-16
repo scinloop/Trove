@@ -18,7 +18,7 @@ collecthub/
 │   │   ├── crud.py          # 收藏/题材/标签/章节 的筛选、增删改、分章与书内搜索
 │   │   ├── seed.py          # 题材库补齐 + 演示数据（python -m app.seed [--reset]）
 │   │   └── routers/         # items / tasks / uploads / meta / stats / genres / tags / chapters / bangumi
-│   └── tests/               # test_api.py（25） + test_bangumi.py（20）+ conftest.py，共 45 个用例
+│   └── tests/               # test_api.py（25） + test_bangumi.py（27）+ conftest.py，共 52 个用例
 └── frontend/                # React 前端（Vite 8 + React 19 + TS 严格模式）
     └── src/
         ├── api/client.ts    # fetch 封装（/api + 图片上传 + .txt 导入）
@@ -39,6 +39,7 @@ collecthub/
 - **书内搜索**：全书关键词命中计数 + 逐处跳转（悬浮条 ‹ › 或章节结果直达），命中高亮居中显示。
 - 其余：评分 / 状态 / 喜爱 / 标签筛选与搜索、图片上传、统计看板、任务清单（待办 + 长期目标）。
 - **Bangumi 刮削**：漫画 / 动漫 / 游戏 / 角色 / 电影 / 小说 六类可在添加时点「🔍 从 Bangumi 刮削」搜索并选中条目——标题/来源/标签/简介自动填充，**保存后服务端抓取完整档案**（评分与排名、评分直方图、收藏五档分布、infobox、全量角色阵容与 CV、关联条目、剧集列表）写入本地快照，并把封面**下载到本地**（离线可用）。电影只取三次元（动画电影归动漫）。已配置 Personal Access Token 时默认包含 R18。出站请求遵守[官方 UA 规范](https://bangumi.github.io/api/)并串行节流 ≤1 req/s；Bangumi 不可达时自动降级，不影响本地收藏。
+- **Bangumi 同步**：详情页可查看「Bangumi 侧：在看/未收藏」对照，并一键「⬆ 同步到 Bangumi」把 Trove 的进度状态（想/在/已 → 想看/在看/看过）、评分（5 星 → 10 分制）、标签、短评写回账号；漫画/小说另写话数与卷数进度，动画按「看到第 N 集」批量标记逐集已看，角色条目写角色收藏标记。追番进度在详情页可直接加减或点剧集列表标记，剧集支持点开查看单集简介与时长。
 
 ## 本地运行（两个终端）
 
@@ -82,6 +83,14 @@ cd ../backend
 | POST | `/api/items/{id}/chapters/import` | 上传 .txt 整本导入（≤20MB，UTF-8/GBK） |
 | POST | `/api/items/{id}/chapters/paste` | 粘贴文本导入（覆盖现有章节） |
 | POST | `/api/items/{id}/chapters/resplit` | 按章节标题重新分章（可带自定义正则 `pattern`） |
+| GET | `/api/bangumi/status` | 连接状态（PAT 是否有效、账号、R18 权限） |
+| GET | `/api/bangumi/search` | 按分类搜索条目/角色（`kw` `category` `limit`） |
+| GET | `/api/bangumi/subject/{id}` | 条目档案（评分直方图 / 收藏分布 / infobox 全量） |
+| GET | `/api/bangumi/subject/{id}/characters` `\| /related` `\| /episodes` | 角色阵容（全量）/ 关联条目 / 剧集列表 |
+| GET | `/api/bangumi/episode/{id}` · `/api/bangumi/character/{id}` | 单集详情 · 角色档案与出演作品 |
+| GET | `/api/bangumi/my-collection/{id}` | 自己在 Bangumi 上的收藏状态（详情页对照） |
+| POST | `/api/items/{id}/scrape` | 重新刮削（角色阵容 / 关联条目 / 剧集一并刷新） |
+| POST | `/api/items/{id}/sync` | 写回 Bangumi：进度状态 / 评分 / 标签 / 短评 + 书籍话卷进度 + 动画集进度 + 角色收藏 |
 | GET/POST | `/api/items/{id}/chapters` | 章节列表（不含正文）/ 追加单章 |
 | GET/PUT/DELETE | `/api/chapters/{id}` | 章节详情（含正文）/ 编辑（重算字数）/ 删除 |
 | GET | `/api/items/{id}/search?q=` | 书内搜索：总次数 + 每章次数与位置偏移 |
@@ -95,7 +104,7 @@ cd ../backend
 ## 测试
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest -v   # 45 passed
+cd backend && .venv\Scripts\python -m pytest -v   # 52 passed
 cd frontend && pnpm build                          # tsc -b 严格模式 + vite build
 ```
 

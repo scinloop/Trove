@@ -29,6 +29,9 @@ class ItemBase(BaseModel):
     # 刮削源：从 Bangumi 搜索选中条目时带上（服务端据此抓快照 + 下封面）
     bgm_id: int | None = None
     bgm_type: int | None = None
+    # 追番/阅读进度（写回 Bangumi 用）
+    ep_progress: int | None = Field(default=None, ge=0, le=100_000)
+    vol_progress: int | None = Field(default=None, ge=0, le=100_000)
 
     @model_validator(mode="after")
     def _validate(self) -> "ItemBase":

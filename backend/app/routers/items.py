@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
+from app.config import settings
 from app.database import get_session
 from app.routers import bangumi
 from app.schemas import ItemCreate, ItemDetail, ItemOut, ItemUpdate
@@ -14,6 +15,13 @@ router = APIRouter(tags=["items"])
 class ItemListOut(BaseModel):
     total: int
     items: list[ItemOut]
+
+
+class SyncResult(BaseModel):
+    """写回结果：更新后的条目 + 本次同步的细节（前端据此提示）。"""
+
+    item: ItemDetail
+    synced: dict
 
 
 @router.get("/items", response_model=ItemListOut)
@@ -80,6 +88,33 @@ async def rescrape_item(
     if not ok:
         raise HTTPException(status_code=502, detail="刮削失败：Bangumi 不可达或条目不存在")
     return ItemDetail.model_validate(item)
+
+
+@router.post("/items/{item_id}/sync", response_model=SyncResult)
+async def sync_item(item_id: int, session: AsyncSession = Depends(get_session)) -> SyncResult:
+    """把本地收藏写回 Bangumi。
+
+    - 作品条目：进度状态（想/在/已 → 想看/在看/看过）、评分（5 星 → 10 分）、标签、短评
+    - 书籍（漫画/小说）：另写话数 / 卷数进度
+    - 动画：把「看到第 N 集」写回为逐集已看
+    - 角色条目：写角色收藏标记
+    """
+    item = await crud.get_item(session, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="item not found")
+    if not item.bgm_id:
+        raise HTTPException(status_code=422, detail="该条目未绑定 Bangumi 条目")
+    if not settings.bgm_configured:
+        raise HTTPException(status_code=401, detail="未配置 Bangumi 访问令牌（backend/.env 的 BGM_TOKEN）")
+
+    synced = await bangumi.sync_collection(item)
+    if (
+        item.ep_progress
+        and item.bgm_type != bangumi.TYPE_CHARACTER
+        and item.category not in bangumi.BOOK_CATEGORIES
+    ):
+        synced["episodes"] = await bangumi.sync_episode_progress(item, item.ep_progress)
+    return SyncResult(item=ItemDetail.model_validate(item), synced=synced)
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

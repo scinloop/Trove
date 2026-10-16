@@ -12,7 +12,7 @@ import {
   statusLabel,
   workStatusOf,
 } from '../lib/labels'
-import type { BgmCharacter, BgmRelated, Item, ItemInput } from '../types'
+import type { BgmCharacter, BgmEpisode, BgmRelated, Item, ItemInput } from '../types'
 import { useConfirm } from './Confirm'
 import { useToast } from './Toast'
 
@@ -32,6 +32,15 @@ const COLLECTION_LABELS: [string, string, string][] = [
   ['on_hold', '搁置', '#a1a1aa'],
   ['dropped', '抛弃', '#ef4444'],
 ]
+
+/** bgm 收藏类型（1想看 2看过 3在看 4搁置 5抛弃） */
+const BGM_COLLECTION_LABEL: Record<number, string> = {
+  1: '想看',
+  2: '看过',
+  3: '在看',
+  4: '搁置',
+  5: '抛弃',
+}
 
 export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: Props) {
   const meta = useMeta()
@@ -55,6 +64,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const cover = cur.cover_url
 
   const isNovel = cur.category === 'novel'
+  const isBook = cur.category === 'comic' || cur.category === 'novel'
   const isWebsite = cur.category === 'website'
   const host = hostOf(cur.url)
   const favSrc = isWebsite ? faviconUrl(cur.url) : null
@@ -101,6 +111,64 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
       toast('已重新刮削最新档案')
     },
     onError: (e) => toast('刮削失败：' + e.message),
+  })
+
+  // ---- 追番进度 / 单集 / 写回 ----
+  const [progress, setProgress] = useState<number | null>(null) // null = 未改动
+  const [openEp, setOpenEp] = useState<number | null>(null)
+  const shownProgress = progress ?? cur.ep_progress ?? 0
+
+  const epsQ = useQuery({
+    queryKey: ['bgm-episodes', cur.bgm_id],
+    queryFn: () => api.bgmEpisodes(cur.bgm_id as number, 200),
+    enabled: !!cur.bgm_id && cur.bgm_type !== 0 && !snap?.episodes,
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+  const eps: BgmEpisode[] = snap?.episodes ?? epsQ.data?.episodes ?? []
+  const epTotal = snap?.episode_total ?? epsQ.data?.total ?? subject?.eps ?? 0
+
+  const epDetailQ = useQuery({
+    queryKey: ['bgm-episode', openEp],
+    queryFn: () => api.bgmEpisode(openEp as number),
+    enabled: !!openEp,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+
+  // bgm 侧我的收藏状态（对照）
+  const myColQ = useQuery({
+    queryKey: ['bgm-collection', cur.bgm_id],
+    queryFn: () => api.myCollection(cur.bgm_id as number),
+    enabled: !!cur.bgm_id,
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  const progressMut = useMutation({
+    mutationFn: (n: number) => api.update(item.id, { ep_progress: n }),
+    onSuccess: () => {
+      setProgress(null)
+      void qc.invalidateQueries({ queryKey: ['items'] })
+      void qc.invalidateQueries({ queryKey: ['item', item.id] })
+      toast('进度已保存（本地）')
+    },
+    onError: (e) => toast('保存失败：' + e.message),
+  })
+
+  const syncMut = useMutation({
+    mutationFn: () => api.syncItem(item.id),
+    onSuccess: (r) => {
+      qc.setQueryData(['item', item.id], r.item)
+      void qc.invalidateQueries({ queryKey: ['bgm-collection', cur.bgm_id] })
+      const epCount = r.synced.episodes
+      toast(
+        r.synced.kind === 'character'
+          ? '已把角色收藏同步到 Bangumi'
+          : `已同步到 Bangumi${epCount ? ` · ${epCount} 集标记为看过` : ''}`,
+      )
+    },
+    onError: (e) => toast('同步失败：' + e.message),
   })
 
   const delMut = useMutation({
@@ -353,6 +421,92 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           </div>
         </div>
 
+        {/* 5b. 追番进度 + 剧集列表（Bangumi 同步） */}
+        {cur.bgm_id && cur.bgm_type !== 0 && (epTotal > 0 || cur.ep_progress != null) && (
+          <>
+            <h3 className="m-sub">
+              追番进度
+              {myColQ.data ? (
+                <em className={'bgm-side' + (myColQ.data.found ? ' on' : '')}>
+                  Bangumi 侧：
+                  {myColQ.data.found
+                    ? BGM_COLLECTION_LABEL[myColQ.data.collection?.type ?? 0] ?? '已收藏'
+                    : '未收藏'}
+                </em>
+              ) : null}
+            </h3>
+            <div className="ep-progress">
+              <button
+                className="mini-btn"
+                onClick={() => setProgress(Math.max(0, shownProgress - 1))}
+                aria-label="减一"
+              >
+                −
+              </button>
+              <b>{shownProgress}</b>
+              <span>
+                / {epTotal || '?'} {isBook ? '话' : '集'}
+              </span>
+              <button className="mini-btn" onClick={() => setProgress(shownProgress + 1)} aria-label="加一">
+                ＋
+              </button>
+              <span className="grow" />
+              <button
+                className="mini-btn primary"
+                onClick={() => progressMut.mutate(shownProgress)}
+                disabled={progressMut.isPending}
+              >
+                保存进度
+              </button>
+            </div>
+            {eps.length > 0 && (
+              <div className="ep-list">
+                {eps.map((e) => {
+                  const watched = (e.sort ?? 0) <= shownProgress
+                  return (
+                    <div className={'ep-item' + (watched ? ' on' : '')} key={e.bgm_id}>
+                      <button
+                        className="ep-no"
+                        onClick={() => setProgress(e.sort ?? 0)}
+                        title="标记看到这一集"
+                      >
+                        {watched ? '✓' : e.sort}
+                      </button>
+                      <button
+                        className="ep-name"
+                        onClick={() => setOpenEp(openEp === e.bgm_id ? null : e.bgm_id)}
+                      >
+                        {e.name_cn || e.name || `第 ${e.sort} 集`}
+                      </button>
+                      <i>{e.airdate}</i>
+                    </div>
+                  )
+                })}
+                {epsQ.data && epsQ.data.total > eps.length && (
+                  <p className="count">
+                    仅载入前 {eps.length} 集（共 {epsQ.data.total} 集）
+                  </p>
+                )}
+              </div>
+            )}
+            {openEp && (
+              <div className="ep-detail">
+                {epDetailQ.isPending ? (
+                  <p className="count">加载单集详情…</p>
+                ) : epDetailQ.data ? (
+                  <>
+                    <b>{epDetailQ.data.name_cn || epDetailQ.data.name}</b>
+                    <i>{[epDetailQ.data.airdate, epDetailQ.data.duration].filter(Boolean).join(' · ')}</i>
+                    <p>{epDetailQ.data.desc || '暂无简介'}</p>
+                  </>
+                ) : (
+                  <p className="count">单集详情加载失败</p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {/* 6. 角色阵容 */}
         {cast.length > 0 && (
           <>
@@ -453,6 +607,11 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
               disabled={scrapeMut.isPending}
             >
               {scrapeMut.isPending ? '刮削中…' : '🔄 重新刮削'}
+            </button>
+          )}
+          {cur.bgm_id && (
+            <button className="btn ghost" onClick={() => syncMut.mutate()} disabled={syncMut.isPending}>
+              {syncMut.isPending ? '同步中…' : '⬆ 同步到 Bangumi'}
             </button>
           )}
           <button

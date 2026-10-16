@@ -400,6 +400,77 @@ async def apply_scrape(
     return True
 
 
+# ---------------- 写回（需要 PAT 的写权限） ----------------
+
+COLLECTION_TYPE: dict[str, int] = {"wish": 1, "doing": 3, "done": 2}  # Trove 进度 → bgm 收藏类型
+EPISODE_TYPE: dict[str, int] = {"none": 0, "wish": 1, "watched": 2, "dropped": 3}
+BOOK_CATEGORIES = ("comic", "novel")  # ep_status/vol_status 仅书籍条目可用（官方限制）
+
+
+async def get_my_collection(subject_id: int) -> dict | None:
+    """读取自己在 bgm 上的单条收藏（未收藏返回 None）。"""
+    status = await get_status()
+    uid = status.get("username")
+    if not uid:
+        return None
+    try:
+        return await request("GET", f"/v0/users/{uid}/collections/{subject_id}")
+    except HTTPException:
+        return None
+
+
+def collection_payload(item: Item) -> dict:
+    """Trove 收藏 → bgm 收藏负载。
+
+    注意 tags：不传 = 忽略，传 [] = 清空 bgm 上的标签，因此仅在有标签时下发。
+    """
+    payload: dict[str, Any] = {"type": COLLECTION_TYPE.get(item.status, 3)}
+    if item.rating:
+        payload["rate"] = item.rating * 2  # 5 星 → 10 分制
+    if item.note:
+        payload["comment"] = item.note[:500]
+    if item.tags:
+        payload["tags"] = item.tags[:10]
+    if item.category in BOOK_CATEGORIES:
+        if item.ep_progress is not None:
+            payload["ep_status"] = item.ep_progress
+        if item.vol_progress is not None:
+            payload["vol_status"] = item.vol_progress
+    return payload
+
+
+async def sync_collection(item: Item) -> dict:
+    """把本地收藏写回 bgm：作品写收藏状态，角色写角色收藏标记。"""
+    if item.bgm_type == TYPE_CHARACTER:
+        await request("POST", f"/v0/characters/{item.bgm_id}/collect")
+        return {"kind": "character", "action": "collect"}
+    payload = collection_payload(item)
+    await request("POST", f"/v0/users/-/collections/{item.bgm_id}", json=payload)
+    return {"kind": "subject", "payload": payload}
+
+
+async def sync_episode_progress(item: Item, up_to: int) -> int:
+    """把「看到第 N 集」写回 bgm：批量把本篇前 N 集标记为看过。"""
+    data = await get_episodes(item.bgm_id or 0, limit=200)
+    ids = [
+        e["bgm_id"]
+        for e in data["episodes"]
+        if e.get("type") in (0, None) and (e.get("sort") or 0) <= up_to
+    ]
+    if not ids:
+        return 0
+    await request(
+        "PATCH",
+        f"/v0/users/-/collections/{item.bgm_id}/episodes",
+        json={"episode_id": ids, "type": EPISODE_TYPE["watched"]},
+    )
+    return len(ids)
+
+
+async def set_character_collected(character_id: int, on: bool = True) -> None:
+    await request("DELETE" if not on else "POST", f"/v0/characters/{character_id}/collect")
+
+
 # ---------------- HTTP 端点 ----------------
 
 
@@ -451,3 +522,10 @@ async def bangumi_episode(episode_id: int) -> dict:
 @router.get("/bangumi/character/{character_id}")
 async def bangumi_character(character_id: int) -> dict:
     return await get_character(character_id)
+
+
+@router.get("/bangumi/my-collection/{subject_id}")
+async def bangumi_my_collection(subject_id: int) -> dict:
+    """读取自己在 bgm 上的收藏状态（详情页对照显示）。"""
+    got = await get_my_collection(subject_id)
+    return {"found": got is not None, "collection": got}

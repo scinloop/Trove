@@ -93,6 +93,11 @@ ROUTES: dict[str, object] = {
         "data": [{"id": 179271, "name": "セイバー", "type": 1, "images": {"grid": "https://lain.bgm.tv/saber.jpg"}}],
         "total": 10,
     },
+    # 写回相关（POST/PATCH/DELETE 共用同一响应）
+    "/v0/users/-/collections/12": {"subject_id": 12, "type": 3},
+    "/v0/users/-/collections/12/episodes": {},
+    "/v0/users/1247155/collections/12": {"subject_id": 12, "type": 3, "rate": 6},
+    "/v0/characters/179271/collect": {},
 }
 
 
@@ -371,3 +376,141 @@ async def test_character_item_scrapes_character_profile(client, bgm_calls):
     assert snap["character"]["gender"] == "女"
     assert snap["character"]["subjects"][0]["relation"] == "漫画"  # 出自哪些作品
     assert bgm_calls[0]["path"] == "/v0/characters/179271"
+
+
+# ---------------- 写回 Bangumi（P4） ----------------
+
+
+async def test_sync_writes_collection_payload(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={
+                "title": "人形电脑天使心",
+                "category": "anime",
+                "bgm_id": 12,
+                "bgm_type": 2,
+                "status": "doing",
+                "rating": 3,
+                "tags": ["治愈"],
+                "note": "很好看",
+            },
+        )
+    ).json()
+    bgm_calls.clear()
+
+    r = await client.post(f"/api/items/{created['id']}/sync")
+    assert r.status_code == 200
+    assert r.json()["synced"]["kind"] == "subject"
+
+    call = next(c for c in bgm_calls if c["path"] == "/v0/users/-/collections/12")
+    assert call["method"] == "POST"
+    assert call["body"]["type"] == 3  # doing → 在看
+    assert call["body"]["rate"] == 6  # 3 星 → 6 分
+    assert call["body"]["comment"] == "很好看"
+    assert call["body"]["tags"] == ["治愈"]
+    assert "ep_status" not in call["body"]  # 动画不能写书籍进度字段
+
+
+async def test_sync_book_includes_ep_and_vol_status(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={
+                "title": "三体",
+                "category": "novel",
+                "bgm_id": 12,
+                "bgm_type": 1,
+                "ep_progress": 5,
+                "vol_progress": 2,
+            },
+        )
+    ).json()
+    bgm_calls.clear()
+
+    r = await client.post(f"/api/items/{created['id']}/sync")
+    assert r.status_code == 200
+    call = next(c for c in bgm_calls if c["path"] == "/v0/users/-/collections/12")
+    assert call["body"]["ep_status"] == 5 and call["body"]["vol_status"] == 2
+
+
+async def test_sync_anime_writes_episode_progress(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={
+                "title": "人形电脑天使心",
+                "category": "anime",
+                "bgm_id": 12,
+                "bgm_type": 2,
+                "ep_progress": 3,
+            },
+        )
+    ).json()
+    bgm_calls.clear()
+
+    r = await client.post(f"/api/items/{created['id']}/sync")
+    assert r.status_code == 200
+    assert r.json()["synced"]["episodes"] == 1  # mock 仅 1 集且 sort=1 ≤ 3
+
+    call = next(c for c in bgm_calls if c["path"].endswith("/12/episodes"))
+    assert call["method"] == "PATCH"
+    assert call["body"] == {"episode_id": [1], "type": 2}
+
+
+async def test_sync_without_episode_progress_skips_episode_call(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={"title": "x", "category": "anime", "bgm_id": 12, "bgm_type": 2},
+        )
+    ).json()
+    bgm_calls.clear()
+    await client.post(f"/api/items/{created['id']}/sync")
+    assert not any("/episodes" in c["path"] for c in bgm_calls)
+
+
+async def test_sync_character_marks_collect(client, bgm_calls):
+    created = (
+        await client.post(
+            "/api/items",
+            json={
+                "title": "セイバー",
+                "category": "character",
+                "sub_types": ["anime_manga"],
+                "bgm_id": 179271,
+                "bgm_type": 0,
+            },
+        )
+    ).json()
+    bgm_calls.clear()
+
+    r = await client.post(f"/api/items/{created['id']}/sync")
+    assert r.status_code == 200
+    assert r.json()["synced"] == {"kind": "character", "action": "collect"}
+    assert bgm_calls[0]["path"] == "/v0/characters/179271/collect"
+    assert bgm_calls[0]["method"] == "POST"
+
+
+async def test_sync_requires_binding_and_token(client, bgm_calls, monkeypatch):
+    plain = (await client.post("/api/items", json={"title": "手动", "category": "anime"})).json()
+    assert (await client.post(f"/api/items/{plain['id']}/sync")).status_code == 422  # 未绑定
+
+    bound = (
+        await client.post(
+            "/api/items",
+            json={"title": "x", "category": "anime", "bgm_id": 12, "bgm_type": 2},
+        )
+    ).json()
+    monkeypatch.setattr(settings, "bgm_token", "")
+    assert (await client.post(f"/api/items/{bound['id']}/sync")).status_code == 401  # 无令牌
+
+
+async def test_my_collection_lookup(client, bgm_calls):
+    r = await client.get("/api/bangumi/my-collection/12")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["found"] is True
+    assert body["collection"]["type"] == 3
+    # 先取账号信息（/v0/me）再读收藏
+    assert any(c["path"] == "/v0/users/1247155/collections/12" for c in bgm_calls)

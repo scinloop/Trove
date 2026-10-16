@@ -994,6 +994,127 @@ select {
   overflow: hidden;
 }
 
+/* 追番进度 / 剧集列表 / 写回 */
+.bgm-side {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+.bgm-side.on {
+  color: #22c55e;
+}
+
+.ep-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel2);
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+
+.ep-progress b {
+  font-size: 17px;
+  color: var(--accent);
+}
+
+.ep-progress span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.ep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ep-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.ep-item.on {
+  background: color-mix(in srgb, #22c55e 8%, transparent);
+}
+
+.ep-no {
+  flex: none;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ep-item.on .ep-no {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.ep-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ep-name:hover {
+  color: var(--accent);
+}
+
+.ep-item i {
+  flex: none;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.ep-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--panel2);
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.ep-detail b {
+  font-size: 12.5px;
+}
+
+.ep-detail i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ep-detail p {
+  color: var(--muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .m-grid {
   display: flex;
   flex-direction: column;

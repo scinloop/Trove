@@ -1,4 +1,4 @@
-import type { BgmCharacter, BgmCharacterDetail, BgmEpisode, BgmEpisodeDetail, BgmRelated, BgmSearchResult, BgmStatus, BgmSubject, BookSearch, CategoryRow, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemDetail, ItemInput, Meta, Stats, Tag, TagGroupRow, Task, TaskInput } from '../types'
+import type { BgmCharacter, BgmCharacterDetail, BgmEpisode, BgmEpisodeDetail, BgmRelated, BgmSearchResult, BgmStatus, BgmSubject, BookSearch, CategoryRow, Chapter, ChapterMeta, ImportResult, Genre, Item, ItemDetail, ItemInput, Meta, MyCollection, Stats, SyncResult, Tag, TagGroupRow, Task, TaskInput } from '../types'
 
 const BASE = '/api'
 
@@ -171,4 +171,7 @@ export const api = {
   bgmCharacter: (id: number) => http<BgmCharacterDetail>(`/bangumi/character/${id}`),
   rescrape: (id: number, withExtras = true) =>
     http<ItemDetail>(`/items/${id}/scrape${toQuery({ with_extras: withExtras })}`, { method: 'POST' }),
+  syncItem: (id: number) => http<SyncResult>(`/items/${id}/sync`, { method: 'POST' }),
+  myCollection: (subjectId: number) =>
+    http<MyCollection>(`/bangumi/my-collection/${subjectId}`),
 }

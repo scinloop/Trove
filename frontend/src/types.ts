@@ -177,6 +177,8 @@ export interface ItemInput {
   image_url: string | null
   bgm_id?: number | null
   bgm_type?: number | null
+  ep_progress?: number | null
+  vol_progress?: number | null
 }
 
 export interface Task {
@@ -303,6 +305,31 @@ export interface BgmSearchResult {
   items: BgmSearchHit[]
   total: number | null
   source: 'subject' | 'character'
+}
+
+/** 写回 Bangumi 的结果 */
+export interface SyncResult {
+  item: ItemDetail
+  synced: {
+    kind?: string
+    action?: string
+    episodes?: number
+    payload?: Record<string, unknown>
+  }
+}
+
+/** Bangumi 侧我自己的收藏状态（对照展示） */
+export interface MyCollection {
+  found: boolean
+  collection: {
+    subject_id?: number
+    type?: number
+    rate?: number
+    ep_status?: number
+    vol_status?: number
+    comment?: string
+    tags?: string[]
+  } | null
 }
 
 /** 支持 Bangumi 刮削的分类（与后端 CATEGORY_TYPES 对应） */
