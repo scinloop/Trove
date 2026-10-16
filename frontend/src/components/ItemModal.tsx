@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useMeta } from '../hooks/queries'
+import { filterInfobox, sortInfobox } from '../lib/bangumi'
 import {
   catOf,
   fmtWords,
@@ -50,6 +51,7 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
   const [fav, setFav] = useState(item.favorite)
   const [favErr, setFavErr] = useState(false)
   const [descOpen, setDescOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   // 详情（含刮削快照）：列表数据里没有快照，进详情时单独取
   const detailQ = useQuery({
@@ -219,7 +221,10 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
 
   const collection = subject?.collection ?? {}
   const collectionTotal = COLLECTION_LABELS.reduce((s, [k]) => s + (collection[k] ?? 0), 0)
-  const infobox = subject?.infobox ?? character?.infobox ?? []
+  // 信息表：先剔除制作班底字段，再按常用属性排序，默认只展示前几项
+  const infobox = sortInfobox(filterInfobox(subject?.infobox ?? character?.infobox))
+  const INFO_LIMIT = 8
+  const shownInfo = infoOpen ? infobox : infobox.slice(0, INFO_LIMIT)
   const summary = subject?.summary ?? character?.summary ?? ''
   const titleAlt = subject?.name_cn && subject.name ? subject.name : ''
 
@@ -358,16 +363,23 @@ export function ItemModal({ item, onClose, onEdit, onRead, onManageChapters }: P
           </div>
         )}
 
-        {/* 4. 作品信息表（infobox） */}
+        {/* 4. 作品信息表（infobox，已剔除制作班底） */}
         {infobox.length > 0 && (
-          <div className="m-info">
-            {infobox.map((x) => (
-              <div className="m-info-row" key={x.key}>
-                <i>{x.key}</i>
-                <span>{x.value}</span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="m-info">
+              {shownInfo.map((x) => (
+                <div className="m-info-row" key={x.key}>
+                  <i>{x.key}</i>
+                  <span>{x.value}</span>
+                </div>
+              ))}
+            </div>
+            {infobox.length > INFO_LIMIT && (
+              <button className="mini-btn info-more" onClick={() => setInfoOpen((o) => !o)}>
+                {infoOpen ? '收起信息表' : `展开全部 ${infobox.length} 项`}
+              </button>
+            )}
+          </>
         )}
 
         {/* 5. 我的记录 */}

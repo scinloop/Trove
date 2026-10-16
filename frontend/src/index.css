@@ -901,6 +901,11 @@ select {
   margin: 16px 0 8px;
 }
 
+.info-more {
+  display: block;
+  margin: -6px auto 14px;
+}
+
 .cast-row {
   display: flex;
   gap: 10px;

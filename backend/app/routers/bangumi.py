@@ -48,6 +48,77 @@ DEFAULT_EMOJI: dict[str, str] = {
 
 MAX_COVER_BYTES = 5 * 1024 * 1024
 
+# 制作班底字段（按需求全部不展示）：职位名变体很多，用关键词匹配。
+# 保留：中文名/别名/话数/放送开始/出版社/作者/原作/连载杂志/册数/页数/ISBN/官方网站/Copyright…
+STAFF_KEYWORDS: tuple[str, ...] = (
+    # 导演 / 演出 / 分镜·脚本
+    "导演",
+    "副导演",
+    "监督",
+    "監修",
+    "演出",
+    "分镜",
+    "コンテ",
+    "絵",
+    "脚本",
+    "剧本",
+    "构成",
+    "構成",
+    # 作画 / 设定 / 设计
+    "作画",
+    "作监",
+    "原画",
+    "动画",
+    "アニメ",
+    "设定",
+    "設定",
+    "设计",
+    "デザイン",
+    "色彩",
+    "摄影",
+    "撮影",
+    "剪辑",
+    "编辑",
+    "編集",
+    # 音乐 / 音响
+    "音乐",
+    "音楽",
+    "音响",
+    "音響",
+    "录音",
+    "録音",
+    "整音",
+    "音效",
+    "配音",
+    "声优",
+    "演员",
+    "出演",
+    "主题歌",
+    "插入歌",
+    "角色歌",
+    # 演出效果 / 美术
+    "特效",
+    "VFX",
+    "CG",
+    "美术",
+    "美術",
+    "背景",
+    "道具",
+    "机械",
+    # 制作 / 企划 / 发行方
+    "制作",
+    "製作",
+    "企划",
+    "企画",
+    "製片",
+    "制片",
+    "プロデュース",
+    "宣传",
+    "发行",
+    "协力",
+    "協力",
+)
+
 _client: httpx.AsyncClient | None = None
 _lock = asyncio.Lock()
 _last_call = 0.0
@@ -151,12 +222,18 @@ def norm_episode(e: dict) -> dict:
     }
 
 
-def norm_infobox(infobox: list | None) -> list[dict]:
-    """infobox 的 value 可能是字符串或对象数组（别名等多值项），统一成扁平文本。"""
+def norm_infobox(infobox: list | None, *, keep_staff: bool = False) -> list[dict]:
+    """infobox 的 value 可能是字符串或对象数组（别名等多值项），统一成扁平文本。
+
+    默认过滤掉制作班底字段（导演/音乐/动画制作/制片人…）——只保留作品属性；
+    非 ASCII 的职位名很多，因此用关键词匹配而非精确枚举。
+    """
     out: list[dict] = []
     for item in infobox or []:
         key = item.get("key")
         if not key:
+            continue
+        if not keep_staff and any(w in key for w in STAFF_KEYWORDS):
             continue
         raw = item.get("value")
         if isinstance(raw, list):

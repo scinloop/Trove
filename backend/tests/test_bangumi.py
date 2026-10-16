@@ -37,6 +37,12 @@ SUBJECT_12 = {
         {"key": "别名", "value": [{"v": "Chobits"}, {"v": "电脑天使"}]},
         {"key": "话数", "value": "27"},
         {"key": "空值项", "value": ""},
+        # 以下为制作班底，必须被过滤掉（需求：制作人员全部不要）
+        {"key": "导演", "value": "浅香守生"},
+        {"key": "动画制作", "value": "MADHOUSE"},
+        {"key": "音乐", "value": "高浪敬太郎"},
+        {"key": "人物设定", "value": "阿部恒"},
+        {"key": "制片人", "value": "源生哲雄"},
     ],
 }
 
@@ -218,6 +224,9 @@ async def test_subject_detail_normalization(client):
     info = {i["key"]: i["value"] for i in d["infobox"]}
     assert info["别名"] == "Chobits / 电脑天使"  # 多值项扁平化
     assert "空值项" not in info  # 空值不下发
+    # 制作班底字段一律不下发（需求：制作人员全部不要）
+    assert not {"导演", "动画制作", "音乐", "人物设定", "制片人"} & set(info)
+    assert "中文名" in info and "话数" in info
     assert d["tags"][0] == {"name": "CLAMP", "count": 1344}
 
 
